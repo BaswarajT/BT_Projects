@@ -139,3 +139,75 @@ export interface DashboardSummary {
   project_progress: ProjectProgress[];
   team_workload: TeamWorkload[];
 }
+
+export interface TimeEntry {
+  id: number;
+  task: number;
+  task_title: string;
+  project: number;
+  project_name: string;
+  user: number;
+  user_name: string;
+  date: string;
+  hours: string;
+  note: string;
+  logged_at: string;
+}
+
+export type UtilizationStatus = "BENCH" | "UNDER_UTILIZED" | "UTILIZED" | "OVER_ALLOCATED";
+
+export const UTILIZATION_LABELS: Record<UtilizationStatus, string> = {
+  BENCH: "Bench",
+  UNDER_UTILIZED: "Under-utilized",
+  UTILIZED: "Utilized",
+  OVER_ALLOCATED: "Over-allocated",
+};
+
+export interface ResourceUtilization {
+  id: number;
+  username: string;
+  full_name: string;
+  company_name: string | null;
+  weekly_capacity_hours: number;
+  capacity_hours: number;
+  logged_hours: number;
+  utilization_pct: number;
+  status: UtilizationStatus;
+  active_assignments: number;
+  available_from: string | null;
+}
+
+export interface ResourceUtilizationReport {
+  start_date: string;
+  end_date: string;
+  resources: ResourceUtilization[];
+  bench_count: number;
+}
+
+export type ScheduleStatus = "ON_TRACK" | "OVER_BUDGET" | "OVERDUE" | "COMPLETED" | "CANCELLED";
+
+export const SCHEDULE_LABELS: Record<ScheduleStatus, string> = {
+  ON_TRACK: "On Track",
+  OVER_BUDGET: "Over Budget",
+  OVERDUE: "Overdue",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+export interface ProjectOverrun {
+  id: number;
+  name: string;
+  code: string;
+  status: ProjectStatus;
+  company_name: string | null;
+  estimated_hours: number;
+  actual_hours: number;
+  overrun_pct: number;
+  end_date: string | null;
+  is_overdue: boolean;
+  schedule_status: ScheduleStatus;
+}
+
+export interface ProjectOverrunReport {
+  projects: ProjectOverrun[];
+}

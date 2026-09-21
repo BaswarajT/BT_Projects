@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "while ($true) { Set-Location 'D:\\Claude BT Project\\projectiq\\backend'; $env:Path = 'C:\\Python312;C:\\Python312\\Scripts;' + $env:Path; python manage.py runserver 127.0.0.1:8000; Start-Sleep 1 }"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "while ($true) { Set-Location 'D:\\Claude BT Project\\projectiq\\frontend'; $env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; npm run dev; Start-Sleep 1 }"
+      ],
+      "port": 5173
+    }
+  ]
+}

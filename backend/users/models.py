@@ -47,6 +47,7 @@ class User(AbstractUser):
     website = models.URLField(max_length=255, blank=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
+    weekly_capacity_hours = models.DecimalField(max_digits=5, decimal_places=2, default=40)
 
     def __str__(self):
         return self.username

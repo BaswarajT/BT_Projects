@@ -24,7 +24,15 @@ class TaskDependencySerializer(serializers.ModelSerializer):
 
 
 class TimeEntrySerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.username", read_only=True)
+    task_title = serializers.CharField(source="task.title", read_only=True)
+    project = serializers.IntegerField(source="task.project_id", read_only=True)
+    project_name = serializers.CharField(source="task.project.name", read_only=True)
+
     class Meta:
         model = TimeEntry
-        fields = ["id", "task", "user", "hours", "note", "logged_at"]
+        fields = [
+            "id", "task", "task_title", "project", "project_name", "user", "user_name",
+            "date", "hours", "note", "logged_at",
+        ]
         read_only_fields = ["user", "logged_at"]

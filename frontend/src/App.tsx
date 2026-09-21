@@ -8,6 +8,8 @@ import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import Tasks from "./pages/Tasks";
 import Kanban from "./pages/Kanban";
+import Timesheet from "./pages/Timesheet";
+import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import Users from "./pages/Users";
 import Companies from "./pages/Companies";
@@ -22,7 +24,11 @@ export default function App() {
         <Route path="/projects/:id" element={<ProjectDetails />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/kanban" element={<Kanban />} />
+        <Route path="/timesheet" element={<Timesheet />} />
         <Route path="/profile" element={<Profile />} />
+        <Route element={<RequireRole roles={["GLOBAL_ADMIN", "SUPER_ADMIN", "ADMIN"]} />}>
+          <Route path="/reports" element={<Reports />} />
+        </Route>
         <Route element={<RequireRole roles={["GLOBAL_ADMIN", "SUPER_ADMIN"]} />}>
           <Route path="/users" element={<Users />} />
         </Route>

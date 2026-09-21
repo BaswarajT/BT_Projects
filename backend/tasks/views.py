@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from users.permissions import has_company_wide_visibility, is_global_admin
 
+from .filters import TimeEntryFilter
 from .models import Task, TaskDependency, TimeEntry
 from .serializers import TaskDependencySerializer, TaskSerializer, TimeEntrySerializer
 
@@ -43,14 +44,17 @@ class TaskDependencyViewSet(viewsets.ModelViewSet):
 class TimeEntryViewSet(viewsets.ModelViewSet):
     serializer_class = TimeEntrySerializer
     permission_classes = [IsAuthenticated]
+    filterset_class = TimeEntryFilter
+    ordering_fields = ["date", "logged_at"]
 
     def get_queryset(self):
         user = self.request.user
+        base = TimeEntry.objects.select_related("task", "task__project", "user")
         if is_global_admin(user):
-            return TimeEntry.objects.all()
+            return base.all()
         if has_company_wide_visibility(user):
-            return TimeEntry.objects.filter(task__project__company=user.company)
-        return TimeEntry.objects.filter(task__project__members__user=user).distinct()
+            return base.filter(task__project__company=user.company)
+        return base.filter(task__project__members__user=user).distinct()
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

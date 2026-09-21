@@ -56,7 +56,11 @@ class TaskDependency(models.Model):
 
 class TimeEntry(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="time_entries")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="time_entries")
+    date = models.DateField(help_text="The day the work was actually performed.")
     hours = models.DecimalField(max_digits=6, decimal_places=2)
     note = models.CharField(max_length=255, blank=True)
     logged_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date"]

@@ -11,7 +11,7 @@ from tasks.views import TaskDependencyViewSet, TaskViewSet, TimeEntryViewSet
 from comments.views import CommentViewSet
 from notifications.views import NotificationViewSet
 from files.views import AttachmentViewSet
-from reports.views import DashboardSummaryView
+from reports.views import DashboardSummaryView, ProjectOverrunView, ResourceUtilizationView
 from users.views import ConfirmOtpView, MeView, RequestOtpView, UserManagementViewSet
 
 router = DefaultRouter()
@@ -35,6 +35,8 @@ urlpatterns = [
     path("api/verify/<str:purpose>/request/", RequestOtpView.as_view()),
     path("api/verify/<str:purpose>/confirm/", ConfirmOtpView.as_view()),
     path("api/dashboard/summary/", DashboardSummaryView.as_view()),
+    path("api/reports/resource-utilization/", ResourceUtilizationView.as_view()),
+    path("api/reports/project-overrun/", ProjectOverrunView.as_view()),
     path("api/", include(router.urls)),
 ]
 

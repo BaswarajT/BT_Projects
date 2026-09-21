@@ -1,5 +1,14 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FolderKanban, ListChecks, KanbanSquare, Users2, Building2 } from "lucide-react";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  ListChecks,
+  KanbanSquare,
+  Clock,
+  BarChart3,
+  Users2,
+  Building2,
+} from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -8,16 +17,20 @@ const baseLinks = [
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/kanban", label: "Kanban", icon: KanbanSquare },
+  { to: "/timesheet", label: "Timesheet", icon: Clock },
 ];
 
 export default function Sidebar() {
   const { user } = useAuth();
   const isGlobalAdmin = user?.role === "GLOBAL_ADMIN";
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isAdmin = user?.role === "ADMIN";
   const canManageUsers = isGlobalAdmin || isSuperAdmin;
+  const hasCompanyWideVisibility = isGlobalAdmin || isSuperAdmin || isAdmin;
 
   const links = [
     ...baseLinks,
+    ...(hasCompanyWideVisibility ? [{ to: "/reports", label: "Reports", icon: BarChart3 }] : []),
     ...(canManageUsers
       ? [{ to: "/users", label: isGlobalAdmin ? "All Users" : "Team", icon: Users2 }]
       : []),

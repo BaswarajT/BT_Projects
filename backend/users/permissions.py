@@ -62,3 +62,11 @@ class IsGlobalAdmin(BasePermission):
 class CanManageUsers(BasePermission):
     def has_permission(self, request, view):
         return can_manage_users(request.user)
+
+
+class HasCompanyWideVisibility(BasePermission):
+    """Global Admin, Super Admin, and Admin — anyone with full project/resource
+    visibility, regardless of whether they can also manage users."""
+
+    def has_permission(self, request, view):
+        return has_company_wide_visibility(request.user)

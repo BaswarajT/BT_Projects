@@ -1,0 +1,64 @@
+export interface Country {
+  code: string;
+  name: string;
+  dial: string;
+  flag: string;
+}
+
+function flagEmoji(code: string): string {
+  return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 127397 + c.charCodeAt(0)));
+}
+
+const RAW: [string, string, string][] = [
+  ["IN", "India", "91"],
+  ["US", "United States", "1"],
+  ["GB", "United Kingdom", "44"],
+  ["CA", "Canada", "1"],
+  ["AU", "Australia", "61"],
+  ["DE", "Germany", "49"],
+  ["FR", "France", "33"],
+  ["SG", "Singapore", "65"],
+  ["AE", "United Arab Emirates", "971"],
+  ["JP", "Japan", "81"],
+  ["CN", "China", "86"],
+  ["BR", "Brazil", "55"],
+  ["ZA", "South Africa", "27"],
+  ["NZ", "New Zealand", "64"],
+  ["IT", "Italy", "39"],
+  ["ES", "Spain", "34"],
+  ["NL", "Netherlands", "31"],
+  ["SE", "Sweden", "46"],
+  ["CH", "Switzerland", "41"],
+  ["IE", "Ireland", "353"],
+  ["MX", "Mexico", "52"],
+  ["RU", "Russia", "7"],
+  ["KR", "South Korea", "82"],
+  ["ID", "Indonesia", "62"],
+  ["MY", "Malaysia", "60"],
+  ["PH", "Philippines", "63"],
+  ["TH", "Thailand", "66"],
+  ["VN", "Vietnam", "84"],
+  ["PK", "Pakistan", "92"],
+  ["BD", "Bangladesh", "880"],
+  ["NG", "Nigeria", "234"],
+  ["EG", "Egypt", "20"],
+  ["SA", "Saudi Arabia", "966"],
+  ["IL", "Israel", "972"],
+  ["TR", "Turkey", "90"],
+  ["PL", "Poland", "48"],
+  ["NO", "Norway", "47"],
+  ["DK", "Denmark", "45"],
+  ["FI", "Finland", "358"],
+  ["BE", "Belgium", "32"],
+];
+
+export const COUNTRIES: Country[] = RAW.map(([code, name, dial]) => ({
+  code,
+  name,
+  dial,
+  flag: flagEmoji(code),
+}));
+
+export function getCountry(code: string | null | undefined): Country | undefined {
+  return COUNTRIES.find((c) => c.code === code);
+}

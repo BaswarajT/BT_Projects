@@ -12,13 +12,16 @@ const baseLinks = [
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const isGlobalAdmin = user?.role === "GLOBAL_ADMIN";
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const isAdminOrAbove = isSuperAdmin || user?.role === "ADMIN";
+  const canManageUsers = isGlobalAdmin || isSuperAdmin;
 
   const links = [
     ...baseLinks,
-    ...(isAdminOrAbove ? [{ to: "/users", label: isSuperAdmin ? "All Users" : "Team", icon: Users2 }] : []),
-    ...(isSuperAdmin ? [{ to: "/companies", label: "Companies", icon: Building2 }] : []),
+    ...(canManageUsers
+      ? [{ to: "/users", label: isGlobalAdmin ? "All Users" : "Team", icon: Users2 }]
+      : []),
+    ...(isGlobalAdmin ? [{ to: "/companies", label: "Companies", icon: Building2 }] : []),
   ];
 
   return (

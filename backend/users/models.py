@@ -14,8 +14,9 @@ def avatar_upload_path(instance, filename):
 
 class User(AbstractUser):
     ROLE_CHOICES = [
+        ("GLOBAL_ADMIN", "Global Admin"),
         ("SUPER_ADMIN", "Super Admin"),
-        ("ADMIN", "Company Admin"),
+        ("ADMIN", "Admin"),
         ("PROJECT_MANAGER", "Project Manager"),
         ("TEAM_LEAD", "Team Lead"),
         ("MEMBER", "Member"),

@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from users.permissions import IsSuperAdmin, is_super_admin
+from users.permissions import IsGlobalAdmin, is_global_admin
 
 from .models import Company
 from .serializers import CompanySerializer
@@ -13,12 +13,12 @@ class CompanyViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ("create", "destroy"):
-            return [IsAuthenticated(), IsSuperAdmin()]
+            return [IsAuthenticated(), IsGlobalAdmin()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return Company.objects.all()
         if user.company_id:
             return Company.objects.filter(id=user.company_id)

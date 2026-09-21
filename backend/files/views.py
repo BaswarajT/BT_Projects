@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 
-from users.permissions import is_company_admin, is_super_admin
+from users.permissions import has_company_wide_visibility, is_global_admin
 
 from .models import Attachment
 from .serializers import AttachmentSerializer
@@ -15,9 +15,9 @@ class AttachmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return Attachment.objects.all()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return Attachment.objects.filter(task__project__company=user.company)
         return Attachment.objects.filter(task__project__members__user=user).distinct()
 

@@ -5,6 +5,7 @@ from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 from .countries import DIAL_CODES
+from .permissions import ROLE_RANK, is_global_admin, max_assignable_role_rank
 
 User = get_user_model()
 
@@ -93,15 +94,17 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     def validate_role(self, value):
         requester = self.context["request"].user
-        if value == "SUPER_ADMIN" and requester.role != "SUPER_ADMIN":
-            raise serializers.ValidationError("Only a Super Admin can assign the Super Admin role.")
+        if ROLE_RANK.get(value, -1) > max_assignable_role_rank(requester):
+            raise serializers.ValidationError(
+                f"You don't have permission to assign the {value} role."
+            )
         return value
 
     def validate_company(self, value):
         requester = self.context["request"].user
-        if requester.role == "SUPER_ADMIN":
+        if is_global_admin(requester):
             return value
-        # Non-super-admins may only ever act within their own company. A blank/null
+        # Non-global-admins may only ever act within their own company. A blank/null
         # value (what the frontend sends by default for these requesters) silently
         # defaults to their own company; an explicit attempt to name a *different*
         # real company is rejected rather than silently overridden.
@@ -112,7 +115,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         requester = self.context["request"].user
         password = validated_data.pop("password", None) or get_random_string(16)
-        if requester.role != "SUPER_ADMIN":
+        if not is_global_admin(requester):
             validated_data["company"] = requester.company
         user = User(**validated_data)
         user.set_password(password)

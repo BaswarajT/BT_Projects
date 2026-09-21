@@ -47,6 +47,7 @@ export interface Task {
 
 export type Gender = "MALE" | "FEMALE" | "OTHER" | "UNSPECIFIED";
 export type Role =
+  | "GLOBAL_ADMIN"
   | "SUPER_ADMIN"
   | "ADMIN"
   | "PROJECT_MANAGER"
@@ -56,8 +57,9 @@ export type Role =
   | "VIEWER";
 
 export const ROLE_LABELS: Record<Role, string> = {
+  GLOBAL_ADMIN: "Global Admin",
   SUPER_ADMIN: "Super Admin",
-  ADMIN: "Company Admin",
+  ADMIN: "Admin",
   PROJECT_MANAGER: "Project Manager",
   TEAM_LEAD: "Team Lead",
   MEMBER: "Member",

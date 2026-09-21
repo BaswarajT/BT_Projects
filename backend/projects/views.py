@@ -2,7 +2,7 @@ from django.db import models
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from users.permissions import is_company_admin, is_super_admin
+from users.permissions import has_company_wide_visibility, is_global_admin
 
 from .models import Milestone, Project, ProjectMember
 from .serializers import MilestoneSerializer, ProjectMemberSerializer, ProjectSerializer
@@ -17,9 +17,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return Project.objects.all()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return Project.objects.filter(company=user.company)
         return Project.objects.filter(
             models.Q(owner=user) | models.Q(members__user=user), company=user.company
@@ -36,9 +36,9 @@ class ProjectMemberViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return ProjectMember.objects.all()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return ProjectMember.objects.filter(project__company=user.company)
         return ProjectMember.objects.filter(
             models.Q(project__owner=user) | models.Q(project__members__user=user)
@@ -51,8 +51,8 @@ class MilestoneViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return Milestone.objects.all()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return Milestone.objects.filter(project__company=user.company)
         return Milestone.objects.filter(project__members__user=user).distinct()

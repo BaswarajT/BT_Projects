@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from projects.models import Milestone, Project
 from tasks.models import Task
+from users.permissions import has_company_wide_visibility, is_global_admin
 
 
 class DashboardSummaryView(APIView):
@@ -15,14 +16,23 @@ class DashboardSummaryView(APIView):
         user = request.user
         today = timezone.now().date()
 
-        projects = Project.objects.filter(members__user=user).distinct()
-        tasks = Task.objects.filter(project__members__user=user).distinct()
+        if is_global_admin(user):
+            projects = Project.objects.all()
+            tasks = Task.objects.all()
+            milestone_scope = Milestone.objects.all()
+        elif has_company_wide_visibility(user):
+            projects = Project.objects.filter(company=user.company)
+            tasks = Task.objects.filter(project__company=user.company)
+            milestone_scope = Milestone.objects.filter(project__company=user.company)
+        else:
+            projects = Project.objects.filter(members__user=user).distinct()
+            tasks = Task.objects.filter(project__members__user=user).distinct()
+            milestone_scope = Milestone.objects.filter(project__members__user=user)
 
         milestones = (
-            Milestone.objects.filter(
-                project__members__user=user, is_completed=False, due_date__gte=today
-            )
+            milestone_scope.filter(is_completed=False, due_date__gte=today)
             .select_related("project")
+            .distinct()
             .order_by("due_date")[:5]
         )
 

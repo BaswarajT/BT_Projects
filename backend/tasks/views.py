@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from users.permissions import is_company_admin, is_super_admin
+from users.permissions import has_company_wide_visibility, is_global_admin
 
 from .models import Task, TaskDependency, TimeEntry
 from .serializers import TaskDependencySerializer, TaskSerializer, TimeEntrySerializer
@@ -17,9 +17,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         base = Task.objects.select_related("project", "assigned_to", "created_by")
-        if is_super_admin(user):
+        if is_global_admin(user):
             return base.distinct()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return base.filter(project__company=user.company).distinct()
         return base.filter(project__members__user=user).distinct()
 
@@ -33,9 +33,9 @@ class TaskDependencyViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return TaskDependency.objects.all()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return TaskDependency.objects.filter(task__project__company=user.company)
         return TaskDependency.objects.filter(task__project__members__user=user).distinct()
 
@@ -46,9 +46,9 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return TimeEntry.objects.all()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return TimeEntry.objects.filter(task__project__company=user.company)
         return TimeEntry.objects.filter(task__project__members__user=user).distinct()
 

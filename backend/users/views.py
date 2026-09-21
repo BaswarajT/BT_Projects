@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import OTPCode, User
-from .permissions import IsAdminOrSuperAdmin, IsSuperAdmin, is_super_admin
+from .permissions import CanManageUsers, is_global_admin
 from .serializers import AdminUserSerializer, ProfileUpdateSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
@@ -24,26 +24,25 @@ OTP_RESEND_COOLDOWN_SECONDS = 60
 
 
 class UserManagementViewSet(viewsets.ModelViewSet):
-    serializer_class = AdminUserSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrSuperAdmin]
-    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    """Only Global Admin and Super Admin reach this at all — Admin has no user-management
+    access (see users.permissions). Global Admin sees/manages every user on the platform;
+    Super Admin is scoped to their own company via get_queryset."""
 
-    def get_permissions(self):
-        if self.action == "destroy":
-            return [IsAuthenticated(), IsSuperAdmin()]
-        return super().get_permissions()
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAuthenticated, CanManageUsers]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
-        if is_super_admin(user):
+        if is_global_admin(user):
             return User.objects.all().order_by("company__name", "username")
         return User.objects.filter(company=user.company).order_by("username")
 
     def perform_destroy(self, instance):
         if instance.id == self.request.user.id:
             raise ValidationError({"detail": "You can't delete your own account."})
-        if instance.role == "SUPER_ADMIN" and User.objects.filter(role="SUPER_ADMIN").count() <= 1:
-            raise ValidationError({"detail": "You can't delete the last remaining Super Admin."})
+        if instance.role == "GLOBAL_ADMIN" and User.objects.filter(role="GLOBAL_ADMIN").count() <= 1:
+            raise ValidationError({"detail": "You can't delete the last remaining Global Admin."})
         try:
             instance.delete()
         except ProtectedError:

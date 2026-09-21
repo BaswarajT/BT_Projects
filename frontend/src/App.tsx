@@ -23,10 +23,10 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/kanban" element={<Kanban />} />
         <Route path="/profile" element={<Profile />} />
-        <Route element={<RequireRole roles={["ADMIN", "SUPER_ADMIN"]} />}>
+        <Route element={<RequireRole roles={["GLOBAL_ADMIN", "SUPER_ADMIN"]} />}>
           <Route path="/users" element={<Users />} />
         </Route>
-        <Route element={<RequireRole roles={["SUPER_ADMIN"]} />}>
+        <Route element={<RequireRole roles={["GLOBAL_ADMIN"]} />}>
           <Route path="/companies" element={<Companies />} />
         </Route>
       </Route>

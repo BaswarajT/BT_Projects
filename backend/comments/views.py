@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
 from notifications.models import Notification
-from users.permissions import is_company_admin, is_super_admin
+from users.permissions import has_company_wide_visibility, is_global_admin
 
 from .models import Comment
 from .serializers import CommentSerializer
@@ -15,9 +15,9 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         base = Comment.objects.select_related("author", "task")
-        if is_super_admin(user):
+        if is_global_admin(user):
             return base.distinct()
-        if is_company_admin(user):
+        if has_company_wide_visibility(user):
             return base.filter(task__project__company=user.company).distinct()
         return base.filter(task__project__members__user=user).distinct()
 

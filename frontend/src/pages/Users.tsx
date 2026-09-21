@@ -26,7 +26,8 @@ function formatApiError(error: unknown): string {
 }
 
 const roleTones: Record<Role, string> = {
-  SUPER_ADMIN: "bg-purple-100 text-purple-700",
+  GLOBAL_ADMIN: "bg-purple-100 text-purple-700",
+  SUPER_ADMIN: "bg-violet-100 text-violet-700",
   ADMIN: "bg-indigo-100 text-indigo-700",
   PROJECT_MANAGER: "bg-blue-100 text-blue-700",
   TEAM_LEAD: "bg-cyan-100 text-cyan-700",
@@ -47,14 +48,15 @@ const emptyForm: ManagedUserInput = {
 
 export default function Users() {
   const { user: currentUser } = useAuth();
-  const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+  // Only Global Admin and Super Admin ever reach this page (see RequireRole in App.tsx).
+  const isGlobalAdmin = currentUser?.role === "GLOBAL_ADMIN";
   const queryClient = useQueryClient();
 
   const { data: users, isLoading } = useQuery({ queryKey: ["managed-users"], queryFn: getManagedUsers });
   const { data: companies } = useQuery({
     queryKey: ["companies"],
     queryFn: getCompanies,
-    enabled: isSuperAdmin,
+    enabled: isGlobalAdmin,
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,8 +64,10 @@ export default function Users() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const availableRoles: Role[] = isSuperAdmin
-    ? ["SUPER_ADMIN", "ADMIN", "PROJECT_MANAGER", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"]
+  // Global Admin can hand out any role, including Global Admin and Super Admin.
+  // Super Admin can hand out Admin and below only — never Super Admin or Global Admin.
+  const availableRoles: Role[] = isGlobalAdmin
+    ? ["GLOBAL_ADMIN", "SUPER_ADMIN", "ADMIN", "PROJECT_MANAGER", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"]
     : ["ADMIN", "PROJECT_MANAGER", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"];
 
   const createMutation = useMutation({
@@ -120,10 +124,10 @@ export default function Users() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">
-            {isSuperAdmin ? "All Users" : "Team"}
+            {isGlobalAdmin ? "All Users" : "Team"}
           </h1>
           <p className="text-sm text-gray-500">
-            {isSuperAdmin
+            {isGlobalAdmin
               ? "Every user across every company on the platform."
               : "Manage roles and access for your company."}
           </p>
@@ -151,10 +155,10 @@ export default function Users() {
               <tr>
                 <th className="px-4 py-3">Username</th>
                 <th className="px-4 py-3">Email</th>
-                {isSuperAdmin && <th className="px-4 py-3">Company</th>}
+                {isGlobalAdmin && <th className="px-4 py-3">Company</th>}
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
-                {isSuperAdmin && <th className="px-4 py-3">Actions</th>}
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -162,12 +166,12 @@ export default function Users() {
                 <tr key={u.id}>
                   <td className="px-4 py-3 font-medium text-gray-800">
                     <span className="flex items-center gap-1.5">
-                      {u.role === "SUPER_ADMIN" && <ShieldCheck size={14} className="text-purple-600" />}
+                      {u.role === "GLOBAL_ADMIN" && <ShieldCheck size={14} className="text-purple-600" />}
                       {u.username}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{u.email}</td>
-                  {isSuperAdmin && (
+                  {isGlobalAdmin && (
                     <td className="px-4 py-3 text-gray-600">{u.company_name || "(platform)"}</td>
                   )}
                   <td className="px-4 py-3">
@@ -203,20 +207,18 @@ export default function Users() {
                       </button>
                     )}
                   </td>
-                  {isSuperAdmin && (
-                    <td className="px-4 py-3">
-                      {u.id !== currentUser?.id && (
-                        <button
-                          onClick={() => handleDelete(u.id, u.username)}
-                          disabled={deleteMutation.isPending}
-                          title="Delete user"
-                          className="text-gray-400 hover:text-red-600 disabled:opacity-50"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </td>
-                  )}
+                  <td className="px-4 py-3">
+                    {u.id !== currentUser?.id && (
+                      <button
+                        onClick={() => handleDelete(u.id, u.username)}
+                        disabled={deleteMutation.isPending}
+                        title="Delete user"
+                        className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -292,7 +294,7 @@ export default function Users() {
                   ))}
                 </select>
               </div>
-              {isSuperAdmin && (
+              {isGlobalAdmin && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
                   <select

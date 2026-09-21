@@ -1,9 +1,21 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from companies.models import Company
 
 from .models import OTPCode, User
+
+
+class TokenRefreshForDeletedUserTest(APITestCase):
+    def test_refresh_for_deleted_user_returns_clean_error_not_500(self):
+        user = User.objects.create_user(username="soon_deleted", password="StrongPassword123")
+        refresh = str(RefreshToken.for_user(user))
+        user.delete()
+
+        response = self.client.post("/api/token/refresh/", {"refresh": refresh}, format="json")
+        self.assertNotEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class OtpVerificationTest(APITestCase):
@@ -44,11 +56,18 @@ class OtpVerificationTest(APITestCase):
 
 
 class RoleManagementTest(APITestCase):
+    """Role hierarchy: GLOBAL_ADMIN (platform) > SUPER_ADMIN (full company control,
+    manages users) > ADMIN (company-wide project visibility, NO user management) >
+    regular roles (scoped to their own projects)."""
+
     def setUp(self):
         self.company_a = Company.objects.create(name="Company A", code="COA2")
         self.company_b = Company.objects.create(name="Company B", code="COB2")
         self.admin_a = User.objects.create_user(
             username="admin_a", password="StrongPassword123", company=self.company_a, role="ADMIN"
+        )
+        self.super_admin_a = User.objects.create_user(
+            username="super_admin_a", password="StrongPassword123", company=self.company_a, role="SUPER_ADMIN"
         )
         self.member_a = User.objects.create_user(
             username="member_a", password="StrongPassword123", company=self.company_a
@@ -56,22 +75,30 @@ class RoleManagementTest(APITestCase):
         self.member_b = User.objects.create_user(
             username="member_b", password="StrongPassword123", company=self.company_b
         )
-        self.super_admin = User.objects.create_user(username="root", password="StrongPassword123", role="SUPER_ADMIN")
+        self.global_admin = User.objects.create_user(
+            username="root", password="StrongPassword123", role="GLOBAL_ADMIN"
+        )
 
     def test_regular_member_cannot_access_admin_endpoint(self):
         self.client.force_authenticate(self.member_a)
         response = self.client.get("/api/admin/users/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_company_admin_only_sees_own_company_users(self):
+    def test_admin_has_no_user_management_access(self):
+        # Admin has company-wide project visibility but NOT user management.
         self.client.force_authenticate(self.admin_a)
+        response = self.client.get("/api/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_super_admin_only_sees_own_company_users(self):
+        self.client.force_authenticate(self.super_admin_a)
         response = self.client.get("/api/admin/users/")
         usernames = [u["username"] for u in response.data]
         self.assertIn("member_a", usernames)
         self.assertNotIn("member_b", usernames)
 
-    def test_company_admin_cannot_create_user_in_other_company(self):
-        self.client.force_authenticate(self.admin_a)
+    def test_super_admin_cannot_create_user_in_other_company(self):
+        self.client.force_authenticate(self.super_admin_a)
         response = self.client.post(
             "/api/admin/users/",
             {
@@ -82,35 +109,36 @@ class RoleManagementTest(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_company_admin_cannot_assign_super_admin_role(self):
-        self.client.force_authenticate(self.admin_a)
-        response = self.client.post(
-            "/api/admin/users/",
-            {
-                "username": "wannabe", "email": "wannabe@example.com", "password": "StrongPassword123",
-                "role": "SUPER_ADMIN",
-            },
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_super_admin_cannot_assign_super_admin_or_global_admin_role(self):
+        self.client.force_authenticate(self.super_admin_a)
+        for role in ("SUPER_ADMIN", "GLOBAL_ADMIN"):
+            response = self.client.post(
+                "/api/admin/users/",
+                {
+                    "username": f"wannabe_{role}", "email": f"{role}@example.com",
+                    "password": "StrongPassword123", "role": role,
+                },
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_company_admin_can_create_user_in_own_company(self):
-        self.client.force_authenticate(self.admin_a)
+    def test_super_admin_can_assign_admin_role_in_own_company(self):
+        self.client.force_authenticate(self.super_admin_a)
         response = self.client.post(
             "/api/admin/users/",
             {
                 "username": "newhire", "email": "newhire@example.com", "password": "StrongPassword123",
-                "role": "TEAM_LEAD",
+                "role": "ADMIN",
             },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created = User.objects.get(username="newhire")
         self.assertEqual(created.company_id, self.company_a.id)
-        self.assertEqual(created.role, "TEAM_LEAD")
+        self.assertEqual(created.role, "ADMIN")
 
-    def test_super_admin_sees_all_users_and_can_create_anywhere(self):
-        self.client.force_authenticate(self.super_admin)
+    def test_global_admin_sees_all_users_and_can_create_anywhere(self):
+        self.client.force_authenticate(self.global_admin)
         response = self.client.get("/api/admin/users/")
         usernames = [u["username"] for u in response.data]
         self.assertIn("member_a", usernames)
@@ -120,18 +148,18 @@ class RoleManagementTest(APITestCase):
             "/api/admin/users/",
             {
                 "username": "platform_hire", "email": "ph@example.com", "password": "StrongPassword123",
-                "role": "ADMIN", "company": self.company_b.id,
+                "role": "SUPER_ADMIN", "company": self.company_b.id,
             },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(User.objects.get(username="platform_hire").company_id, self.company_b.id)
 
-    def test_company_admin_can_create_user_with_blank_password_and_explicit_null_company(self):
+    def test_super_admin_can_create_user_with_blank_password_and_explicit_null_company(self):
         # Matches exactly what the frontend form sends: password left blank (should
         # auto-generate one) and company explicitly set to null (should be forced to
         # the admin's own company, not rejected).
-        self.client.force_authenticate(self.admin_a)
+        self.client.force_authenticate(self.super_admin_a)
         response = self.client.post(
             "/api/admin/users/",
             {

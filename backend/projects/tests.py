@@ -46,11 +46,14 @@ class CrossCompanyIsolationTest(APITestCase):
         self.admin_a = User.objects.create_user(
             username="admin_a", password="StrongPassword123", company=self.company_a, role="ADMIN"
         )
+        self.super_admin_a = User.objects.create_user(
+            username="super_admin_a", password="StrongPassword123", company=self.company_a, role="SUPER_ADMIN"
+        )
         self.member_b = User.objects.create_user(
             username="member_b", password="StrongPassword123", company=self.company_b
         )
-        self.super_admin = User.objects.create_user(
-            username="root", password="StrongPassword123", role="SUPER_ADMIN"
+        self.global_admin = User.objects.create_user(
+            username="root", password="StrongPassword123", role="GLOBAL_ADMIN"
         )
 
         self.client.force_authenticate(self.member_a)
@@ -74,15 +77,22 @@ class CrossCompanyIsolationTest(APITestCase):
         response = self.client.get(f"/api/projects/{self.project_a_id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_company_admin_sees_all_projects_in_own_company_only(self):
+    def test_admin_sees_all_projects_in_own_company_only(self):
         self.client.force_authenticate(self.admin_a)
         response = self.client.get("/api/projects/")
         names = [p["name"] for p in response.data]
         self.assertIn("Company A Secret", names)
         self.assertNotIn("Company B Secret", names)
 
-    def test_super_admin_sees_everything(self):
-        self.client.force_authenticate(self.super_admin)
+    def test_super_admin_sees_all_projects_in_own_company_only(self):
+        self.client.force_authenticate(self.super_admin_a)
+        response = self.client.get("/api/projects/")
+        names = [p["name"] for p in response.data]
+        self.assertIn("Company A Secret", names)
+        self.assertNotIn("Company B Secret", names)
+
+    def test_global_admin_sees_everything(self):
+        self.client.force_authenticate(self.global_admin)
         response = self.client.get("/api/projects/")
         names = [p["name"] for p in response.data]
         self.assertIn("Company A Secret", names)

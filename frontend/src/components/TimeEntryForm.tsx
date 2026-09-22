@@ -24,7 +24,7 @@ export default function TimeEntryForm({ initial, onSubmit, onCancel }: TimeEntry
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: getProjects });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: () => getProjects() });
   const { data: tasks } = useQuery({
     queryKey: ["tasks", { project: projectId }],
     queryFn: () => getTasks({ project: projectId }),

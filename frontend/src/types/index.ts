@@ -1,5 +1,20 @@
 export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
 export type ProjectPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type ProjectTypeTag = "MRA" | "NON_MRA" | "";
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  PLANNING: "Planning",
+  ACTIVE: "Ongoing",
+  ON_HOLD: "On Hold",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+export const PROJECT_TYPE_LABELS: Record<ProjectTypeTag, string> = {
+  MRA: "MRA",
+  NON_MRA: "Non MRA",
+  "": "—",
+};
 
 export interface Project {
   id: number;
@@ -13,6 +28,8 @@ export interface Project {
   client: number | null;
   client_name: string | null;
   pmo_name: string;
+  pmo: number | null;
+  pmo_owner_name: string | null;
   region: string;
   state: string;
   priority: ProjectPriority;
@@ -22,6 +39,35 @@ export interface Project {
   end_date: string | null;
   created_at: string;
   updated_at: string;
+
+  percent_complete: number;
+  project_group: string;
+  created_by: number | null;
+  created_by_name: string | null;
+  completion_date: string | null;
+  unique_order_id: string;
+  po_status: string;
+  po_number: string;
+  currency: string;
+  po_value: string | null;
+  man_days: number | null;
+  sales_person: number | null;
+  sales_person_name: string | null;
+  category_a: string;
+  category_b: string;
+  contract_type: string;
+  comments: string;
+  project_comments: string;
+  overrun_comments: string;
+  po_date: string | null;
+  billing_entity: string;
+  budget_type: string;
+  working_emp: string;
+  lob_head: number | null;
+  lob_head_name: string | null;
+  delivery_leads: string;
+  project_type: ProjectTypeTag;
+  completion_status: ProjectStatus | "";
 }
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "BLOCKED" | "DONE" | "CANCELLED";

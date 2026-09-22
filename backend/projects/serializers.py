@@ -7,15 +7,25 @@ class ProjectSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source="owner.username", read_only=True)
     company_name = serializers.CharField(source="company.name", read_only=True, default=None)
     client_name = serializers.CharField(source="client.name", read_only=True, default=None)
+    pmo_owner_name = serializers.CharField(source="pmo.username", read_only=True, default=None)
+    created_by_name = serializers.CharField(source="created_by.username", read_only=True, default=None)
+    sales_person_name = serializers.CharField(source="sales_person.username", read_only=True, default=None)
+    lob_head_name = serializers.CharField(source="lob_head.username", read_only=True, default=None)
 
     class Meta:
         model = Project
         fields = [
             "id", "name", "code", "description", "owner", "owner_name", "company", "company_name",
-            "client", "client_name", "pmo_name", "region", "state", "priority", "budget",
-            "status", "start_date", "end_date", "created_at", "updated_at",
+            "client", "client_name", "pmo_name", "pmo", "pmo_owner_name", "region", "state",
+            "priority", "budget", "status", "start_date", "end_date", "created_at", "updated_at",
+            "percent_complete", "project_group", "created_by", "created_by_name", "completion_date",
+            "unique_order_id", "po_status", "po_number", "currency", "po_value", "man_days",
+            "sales_person", "sales_person_name", "category_a", "category_b", "contract_type",
+            "comments", "project_comments", "overrun_comments", "po_date", "billing_entity",
+            "budget_type", "working_emp", "lob_head", "lob_head_name", "delivery_leads",
+            "project_type", "completion_status",
         ]
-        read_only_fields = ["owner", "company"]
+        read_only_fields = ["owner", "company", "created_by"]
 
 
 class ProjectMemberSerializer(serializers.ModelSerializer):

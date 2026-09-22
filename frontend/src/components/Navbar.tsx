@@ -1,7 +1,41 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LogOut } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function pad(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+function formatDate(d: Date): string {
+  return `${pad(d.getDate())}-${MONTHS[d.getMonth()]}-${pad(d.getFullYear() % 100)}`;
+}
+
+function formatTime(d: Date): string {
+  const hours24 = d.getHours();
+  const ampm = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+  return `${pad(hours12)}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${ampm}`;
+}
+
+function LiveClock() {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="hidden sm:flex flex-col items-end leading-tight select-none">
+      <span className="text-xs font-medium text-gray-700 tabular-nums">{formatTime(now)}</span>
+      <span className="text-[10px] text-gray-400 tabular-nums">{formatDate(now)}</span>
+    </div>
+  );
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -25,6 +59,7 @@ export default function Navbar() {
             {user.username}
           </Link>
         )}
+        <LiveClock />
         <button
           onClick={logout}
           className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"

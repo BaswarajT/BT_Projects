@@ -1,108 +1,103 @@
-# ProjectIQ
+# BT Projects
 
-A Zoho Projects–style project-management app: Django REST Framework + PostgreSQL backend,
-React + TypeScript + Tailwind frontend, JWT auth, Redis/Celery for background jobs.
+A multi-tenant project delivery and sales platform: Django REST Framework backend,
+React + TypeScript + Tailwind frontend, JWT auth. Every company's data — projects,
+tasks, timesheets, clients, deals — is isolated from every other company's, enforced
+at the API layer.
 
-## What's already done
+## Feature overview
 
-- Backend (`backend/`): custom `User` model, `Project`/`ProjectMember`/`Milestone`,
-  `Task`/`TaskDependency`/`TimeEntry`, `Comment`, `Notification`, `Attachment` models,
-  serializers, permission-scoped ViewSets, JWT auth (register/login/refresh), a
-  dashboard-summary endpoint (open/completed/overdue/blocked task counts, per-project
-  progress, team workload, upcoming milestones), search/filter/ordering, Celery config,
-  and a Django test suite (`python manage.py test` — 5/5 passing against SQLite in this
-  sandbox).
-- Frontend (`frontend/`): Vite + React 18 + TypeScript + Tailwind, React Router, TanStack
-  Query, an Axios client with JWT refresh, auth context + route guard, Login/Register,
-  a full project-management Dashboard (stat cards, per-project progress bars, team
-  workload chart, upcoming milestones), Projects (list + create), Project details (task
-  list + create), Tasks (search/filter), and a drag-and-drop Kanban board.
+**Access & multi-tenancy**
+- Company-scoped data isolation across every module, enforced server-side (never just hidden in the UI)
+- 3-tier admin hierarchy — Global Admin (platform-wide), Super Admin (full company control), Admin (company-wide visibility, no user management) — plus Sales Manager, Project Manager, Salesperson, Team Lead, Member, Client, Viewer
+- JWT auth with refresh, OTP-based email/phone verification
+- Recycle Bin (soft delete + restore) for Users and Projects
 
-## Tools missing on the machine this was scaffolded on
+**Delivery**
+- Projects — a full PMO tracker: PO tracking, LOB/project group, PMO owner, sales person, budget/PO value, categories, billing entity, comments, and more. Auto-generated `PR-####` project codes, one independent sequence per company. Configurable table columns, rich filtering (status, PMO, LOB, client, date range), CSV/Excel export
+- Tasks, subtask dependencies, Kanban board, Milestones
+- Timesheet + Resource Utilization/Bench reporting, Project Overrun reporting
 
-This was built in a sandboxed environment that only had Python installed — **Node/npm,
-git, PostgreSQL, and Docker were not available**, so none of the following were run here:
-`npm install`, `npm run dev`, `git init`, `python manage.py migrate` against a real
-database, or `docker compose up`. Install these locally before running the app:
+**Sales**
+- Clients, with live deal/revenue/active-project stats
+- Sales Projects — the single source of truth for every opportunity
+- Deals — a drag-and-drop Kanban pipeline view over that same data
+- Sales Team performance dashboard (pipeline, win rate, target achievement)
+- "Convert to Project" turns a Won deal into a real delivery project
 
-- [Node.js LTS](https://nodejs.org/) (includes npm)
-- [Git](https://git-scm.com/)
-- [PostgreSQL](https://www.postgresql.org/download/) + pgAdmin (or use the included
-  `docker-compose.yml`)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (optional, for Postgres/Redis)
+**Everywhere**
+- Comments, notifications, file attachments
+- Company-scoped admin Users page: search, role management, Recycle Bin
 
-The backend's Python packages (Django, DRF, psycopg, Celery, etc.) were installed and the
-full test suite was verified to pass in this sandbox.
+## Tech stack
+
+- **Backend:** Django 5, Django REST Framework, SimpleJWT, django-filter, Celery + Redis (optional background jobs), openpyxl (Excel export), PostgreSQL in production / SQLite for local dev
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, React Router, Axios
 
 ## Run it locally
 
-### 1. Database
-
-Either install PostgreSQL locally and create the database/user:
-
-```sql
-CREATE DATABASE projectiq;
-CREATE USER projectiq_user WITH PASSWORD 'CHANGE_THIS_PASSWORD';
-GRANT ALL PRIVILEGES ON DATABASE projectiq TO projectiq_user;
-\c projectiq
-GRANT ALL ON SCHEMA public TO projectiq_user;
-ALTER SCHEMA public OWNER TO projectiq_user;
-```
-
-or start it with Docker:
-
-```bash
-docker compose up -d db redis
-```
-
-Update `backend/.env` if you change the database name/user/password.
-
-### 2. Backend
+### 1. Backend
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+copy .env.example .env       # macOS/Linux: cp .env.example .env
+```
+
+Edit `backend/.env` — for local dev the quickest path is SQLite:
+
+```
+DB_ENGINE=sqlite
+```
+
+Then:
+
+```bash
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### 3. Frontend
+To run against PostgreSQL instead, either install it locally or start it with Docker
+(`docker compose up -d db redis`), set `DB_ENGINE=postgresql` and the `DB_*` variables
+in `.env`, and run the same `migrate`/`runserver` steps.
+
+### 2. Frontend
 
 ```bash
 cd frontend
 npm install
+copy .env.example .env       # macOS/Linux: cp .env.example .env
 npm run dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`). Register an account, create a
-project, add a task, drag it across the Kanban board, then refresh the page and check
-PostgreSQL (or Django Admin at `http://127.0.0.1:8000/admin/`) to confirm it persisted.
+Open the URL Vite prints (usually `http://localhost:5173`).
 
-### 4. Celery (optional, needs Redis running)
+### 3. Tests
 
 ```bash
 cd backend
-.venv\Scripts\Activate.ps1
-celery -A config worker --loglevel=info
+python manage.py test
 ```
-
-## Git
-
-Git wasn't available in the sandbox, so no repository was initialized. Run this from the
-`projectiq/` folder once you have git installed:
 
 ```bash
-git init
-git add .
-git commit -m "Initial ProjectIQ application"
+cd frontend
+npx tsc -b
 ```
 
-## Next steps
+## Deployment
 
-Members management UI, comments UI, milestones UI, notifications UI, file upload UI, and
-calendar/time-tracking UI are backed by working APIs (see `backend/config/urls.py`) but
-don't have frontend pages yet — build those next, then move on to Docker, CI/CD, and the
-optional ML risk-prediction / RAG assistant features.
+The backend is production-ready for a platform like [PythonAnywhere](https://www.pythonanywhere.com/)
+(whitenoise for static files, env-driven `ALLOWED_HOSTS`/`CORS_ALLOWED_ORIGINS`,
+PostgreSQL support). The frontend deploys cleanly to [Vercel](https://vercel.com/) —
+set `VITE_API_URL` there to the deployed backend's URL.
+
+## Project structure
+
+```
+backend/    Django project — one app per domain (users, companies, projects, tasks,
+            sales, clients, comments, notifications, files, reports)
+frontend/   Vite + React app — pages/, components/, services/ (API clients), types/
+```

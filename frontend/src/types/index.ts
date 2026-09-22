@@ -160,11 +160,23 @@ export interface Company {
   project_count: number;
 }
 
-export interface Milestone {
+export interface UpcomingMilestone {
   id: number;
   title: string;
   due_date: string;
   project_name: string;
+}
+
+export interface Milestone {
+  id: number;
+  project: number;
+  project_name: string;
+  project_code: string;
+  title: string;
+  description: string;
+  due_date: string | null;
+  is_completed: boolean;
+  created_at: string;
 }
 
 export interface ProjectProgress {
@@ -189,7 +201,7 @@ export interface DashboardSummary {
   completed_tasks: number;
   overdue_tasks: number;
   blocked_tasks: number;
-  upcoming_milestones: Milestone[];
+  upcoming_milestones: UpcomingMilestone[];
   project_progress: ProjectProgress[];
   team_workload: TeamWorkload[];
 }

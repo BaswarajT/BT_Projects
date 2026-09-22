@@ -8,6 +8,7 @@ import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import Tasks from "./pages/Tasks";
 import Kanban from "./pages/Kanban";
+import Milestones from "./pages/Milestones";
 import Timesheet from "./pages/Timesheet";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/projects/:id" element={<ProjectDetails />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/kanban" element={<Kanban />} />
+        <Route path="/milestones" element={<Milestones />} />
         <Route path="/timesheet" element={<Timesheet />} />
         <Route path="/profile" element={<Profile />} />
         <Route

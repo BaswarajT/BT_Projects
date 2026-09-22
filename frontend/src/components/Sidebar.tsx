@@ -4,6 +4,7 @@ import {
   FolderKanban,
   ListChecks,
   KanbanSquare,
+  Flag,
   Clock,
   BarChart3,
   Users2,
@@ -26,6 +27,7 @@ const deliveryLinks: NavLinkDef[] = [
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/kanban", label: "Kanban", icon: KanbanSquare },
+  { to: "/milestones", label: "Milestones", icon: Flag },
   { to: "/timesheet", label: "Timesheet", icon: Clock },
 ];
 

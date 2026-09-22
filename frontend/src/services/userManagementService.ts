@@ -12,8 +12,13 @@ export interface ManagedUserInput {
   is_active?: boolean;
 }
 
-export async function getManagedUsers(): Promise<User[]> {
-  const response = await api.get("/admin/users/");
+export async function getManagedUsers(search?: string): Promise<User[]> {
+  const response = await api.get("/admin/users/", { params: search ? { search } : undefined });
+  return response.data;
+}
+
+export async function getRecycleBinUsers(search?: string): Promise<User[]> {
+  const response = await api.get("/admin/users/recycle-bin/", { params: search ? { search } : undefined });
   return response.data;
 }
 
@@ -29,4 +34,9 @@ export async function updateManagedUser(id: number, data: Partial<ManagedUserInp
 
 export async function deleteManagedUser(id: number): Promise<void> {
   await api.delete(`/admin/users/${id}/`);
+}
+
+export async function restoreManagedUser(id: number): Promise<User> {
+  const response = await api.post(`/admin/users/${id}/restore/`);
+  return response.data;
 }

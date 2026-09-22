@@ -92,6 +92,7 @@ export interface User {
   email_verified: boolean;
   phone_verified: boolean;
   is_active: boolean;
+  deleted_at?: string | null;
 }
 
 export interface Company {

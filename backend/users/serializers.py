@@ -81,6 +81,9 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z .'-]*$")
+
+
 class AdminUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
     company_name = serializers.CharField(source="company.name", read_only=True, default=None)
@@ -89,8 +92,43 @@ class AdminUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "username", "email", "first_name", "last_name", "role",
-            "company", "company_name", "is_active", "password",
+            "company", "company_name", "is_active", "password", "deleted_at",
         ]
+        read_only_fields = ["deleted_at"]
+        extra_kwargs = {
+            "first_name": {"required": True, "allow_blank": False},
+            "last_name": {"required": True, "allow_blank": False},
+            "email": {"required": True, "allow_blank": False},
+        }
+
+    def _proper_name(self, value, label):
+        value = " ".join(value.split())
+        if not NAME_PATTERN.match(value):
+            raise serializers.ValidationError(
+                f'{label} should contain only letters, e.g. "Baswaraj".'
+            )
+        return value.title()
+
+    def validate_first_name(self, value):
+        return self._proper_name(value, "First name")
+
+    def validate_last_name(self, value):
+        return self._proper_name(value, "Last name")
+
+    def validate_email(self, value):
+        value = value.strip()
+        existing = User.objects.filter(email__iexact=value)
+        if self.instance:
+            existing = existing.exclude(pk=self.instance.pk)
+        conflict = existing.first()
+        if conflict:
+            if conflict.deleted_at:
+                raise serializers.ValidationError(
+                    "This email belongs to a deleted account. Restore it from the Recycle "
+                    "Bin instead of creating a new one."
+                )
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
 
     def validate_role(self, value):
         requester = self.context["request"].user

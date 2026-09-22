@@ -128,7 +128,7 @@ class RoleManagementTest(APITestCase):
             "/api/admin/users/",
             {
                 "username": "newhire", "email": "newhire@example.com", "password": "StrongPassword123",
-                "role": "ADMIN",
+                "first_name": "Jordan", "last_name": "Lee", "role": "ADMIN",
             },
             format="json",
         )
@@ -148,7 +148,7 @@ class RoleManagementTest(APITestCase):
             "/api/admin/users/",
             {
                 "username": "platform_hire", "email": "ph@example.com", "password": "StrongPassword123",
-                "role": "SUPER_ADMIN", "company": self.company_b.id,
+                "first_name": "Priya", "last_name": "Nair", "role": "SUPER_ADMIN", "company": self.company_b.id,
             },
             format="json",
         )
@@ -164,7 +164,7 @@ class RoleManagementTest(APITestCase):
             "/api/admin/users/",
             {
                 "username": "blankpw", "email": "blankpw@example.com", "password": "",
-                "first_name": "", "last_name": "", "role": "MEMBER", "company": None,
+                "first_name": "Alex", "last_name": "Kim", "role": "MEMBER", "company": None,
             },
             format="json",
         )
@@ -172,3 +172,134 @@ class RoleManagementTest(APITestCase):
         created = User.objects.get(username="blankpw")
         self.assertEqual(created.company_id, self.company_a.id)
         self.assertTrue(created.has_usable_password())
+
+
+class UserNameValidationTest(APITestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Acme", code="NAME1")
+        self.admin = User.objects.create_user(
+            username="boss", password="StrongPassword123", company=self.company, role="SUPER_ADMIN"
+        )
+        self.client.force_authenticate(self.admin)
+
+    def base_payload(self, **overrides):
+        payload = {
+            "username": "newperson", "email": "newperson@example.com", "password": "StrongPassword123",
+            "first_name": "Baswaraj", "last_name": "Tugashatte", "role": "MEMBER",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_blank_names_rejected(self):
+        response = self.client.post(
+            "/api/admin/users/", self.base_payload(first_name="", last_name=""), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("first_name", response.data)
+        self.assertIn("last_name", response.data)
+
+    def test_names_with_digits_rejected(self):
+        response = self.client.post(
+            "/api/admin/users/", self.base_payload(first_name="Bas4araj"), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("first_name", response.data)
+
+    def test_names_are_title_cased(self):
+        response = self.client.post(
+            "/api/admin/users/", self.base_payload(first_name="baswaraj", last_name="TUGASHATTE"), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created = User.objects.get(username="newperson")
+        self.assertEqual(created.first_name, "Baswaraj")
+        self.assertEqual(created.last_name, "Tugashatte")
+
+
+class DuplicateEmailTest(APITestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Acme", code="DUPE1")
+        self.admin = User.objects.create_user(
+            username="boss", password="StrongPassword123", company=self.company, role="SUPER_ADMIN"
+        )
+        self.existing = User.objects.create_user(
+            username="taken", password="StrongPassword123", company=self.company,
+            email="taken@example.com", first_name="Taken", last_name="User",
+        )
+        self.client.force_authenticate(self.admin)
+
+    def test_duplicate_email_rejected_case_insensitively(self):
+        response = self.client.post(
+            "/api/admin/users/",
+            {
+                "username": "newperson", "email": "TAKEN@example.com", "password": "StrongPassword123",
+                "first_name": "New", "last_name": "Person", "role": "MEMBER",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+
+    def test_deleted_accounts_email_still_reserved(self):
+        self.client.delete(f"/api/admin/users/{self.existing.id}/")
+        response = self.client.post(
+            "/api/admin/users/",
+            {
+                "username": "newperson", "email": "taken@example.com", "password": "StrongPassword123",
+                "first_name": "New", "last_name": "Person", "role": "MEMBER",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("deleted account", str(response.data["email"]))
+
+    def test_updating_own_email_to_same_value_is_fine(self):
+        response = self.client.patch(
+            f"/api/admin/users/{self.existing.id}/", {"email": "taken@example.com"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class SoftDeleteAndRestoreTest(APITestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Acme", code="SOFT1")
+        self.admin = User.objects.create_user(
+            username="boss", password="StrongPassword123", company=self.company, role="SUPER_ADMIN"
+        )
+        self.target = User.objects.create_user(
+            username="leaving", password="StrongPassword123", company=self.company,
+            email="leaving@example.com", first_name="Leaving", last_name="User",
+        )
+        self.client.force_authenticate(self.admin)
+
+    def test_delete_soft_deletes_not_hard_deletes(self):
+        response = self.client.delete(f"/api/admin/users/{self.target.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.target.refresh_from_db()
+        self.assertIsNotNone(self.target.deleted_at)
+        self.assertFalse(self.target.is_active)
+
+    def test_deleted_user_disappears_from_active_list_but_appears_in_recycle_bin(self):
+        self.client.delete(f"/api/admin/users/{self.target.id}/")
+
+        active_response = self.client.get("/api/admin/users/")
+        self.assertNotIn("leaving", [u["username"] for u in active_response.data])
+
+        bin_response = self.client.get("/api/admin/users/recycle-bin/")
+        self.assertEqual(bin_response.status_code, status.HTTP_200_OK)
+        self.assertIn("leaving", [u["username"] for u in bin_response.data])
+
+    def test_restore_reactivates_and_returns_to_active_list(self):
+        self.client.delete(f"/api/admin/users/{self.target.id}/")
+        response = self.client.post(f"/api/admin/users/{self.target.id}/restore/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.target.refresh_from_db()
+        self.assertIsNone(self.target.deleted_at)
+        self.assertTrue(self.target.is_active)
+
+        active_response = self.client.get("/api/admin/users/")
+        self.assertIn("leaving", [u["username"] for u in active_response.data])
+
+    def test_search_by_email(self):
+        response = self.client.get("/api/admin/users/", {"search": "leaving@example.com"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([u["username"] for u in response.data], ["leaving"])

@@ -12,7 +12,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "head", "options"]
 
     def get_permissions(self):
-        if self.action in ("create", "destroy"):
+        if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAuthenticated(), IsGlobalAdmin()]
         return [IsAuthenticated()]
 

@@ -1,18 +1,20 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, RotateCcw, Search, ShieldCheck, Trash2, X } from "lucide-react";
 
 import Modal from "../components/Modal";
 import { useAuth } from "../context/AuthContext";
-import { getCompanies } from "../services/companyService";
+import { getCompanies, updateCompany } from "../services/companyService";
 import {
   createManagedUser,
   deleteManagedUser,
   getManagedUsers,
+  getRecycleBinUsers,
+  restoreManagedUser,
   updateManagedUser,
   type ManagedUserInput,
 } from "../services/userManagementService";
-import { ROLE_LABELS, type Role } from "../types";
+import { ROLE_LABELS, type Role, type User } from "../types";
 
 function formatApiError(error: unknown): string {
   const data = (error as { response?: { data?: Record<string, string[] | string> } })?.response?.data;
@@ -46,13 +48,27 @@ const emptyForm: ManagedUserInput = {
   company: null,
 };
 
+type View = "active" | "recycle";
+
 export default function Users() {
   const { user: currentUser } = useAuth();
   // Only Global Admin and Super Admin ever reach this page (see RequireRole in App.tsx).
   const isGlobalAdmin = currentUser?.role === "GLOBAL_ADMIN";
   const queryClient = useQueryClient();
 
-  const { data: users, isLoading } = useQuery({ queryKey: ["managed-users"], queryFn: getManagedUsers });
+  const [view, setView] = useState<View>("active");
+  const [search, setSearch] = useState("");
+
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["managed-users", { search }],
+    queryFn: () => getManagedUsers(search || undefined),
+    enabled: view === "active",
+  });
+  const { data: deletedUsers, isLoading: isLoadingRecycleBin } = useQuery({
+    queryKey: ["recycle-bin-users", { search }],
+    queryFn: () => getRecycleBinUsers(search || undefined),
+    enabled: view === "recycle",
+  });
   const { data: companies } = useQuery({
     queryKey: ["companies"],
     queryFn: getCompanies,
@@ -63,6 +79,14 @@ export default function Users() {
   const [form, setForm] = useState<ManagedUserInput>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Several rows can share the same company, so "which row is being edited" is tracked
+  // separately from "which company that edit will save to" — otherwise every row for
+  // that company would render its own input at once and fight over focus.
+  const [editingRowKey, setEditingRowKey] = useState<string | null>(null);
+  const [editingCompanyId, setEditingCompanyId] = useState<number | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [companyEditError, setCompanyEditError] = useState<string | null>(null);
 
   // Global Admin can hand out any role, including Global Admin and Super Admin.
   // Super Admin can hand out Admin and below only — never Super Admin or Global Admin.
@@ -97,15 +121,114 @@ export default function Users() {
     onSuccess: () => {
       setDeleteError(null);
       queryClient.invalidateQueries({ queryKey: ["managed-users"] });
+      queryClient.invalidateQueries({ queryKey: ["recycle-bin-users"] });
       queryClient.invalidateQueries({ queryKey: ["companies"] });
     },
     onError: (error) => setDeleteError(formatApiError(error)),
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: restoreManagedUser,
+    onSuccess: () => {
+      setDeleteError(null);
+      queryClient.invalidateQueries({ queryKey: ["managed-users"] });
+      queryClient.invalidateQueries({ queryKey: ["recycle-bin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+    },
+    onError: (error) => setDeleteError(formatApiError(error)),
+  });
+
+  const renameCompanyMutation = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => updateCompany(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["managed-users"] });
+      queryClient.invalidateQueries({ queryKey: ["recycle-bin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      setEditingRowKey(null);
+      setEditingCompanyId(null);
+      setCompanyEditError(null);
+    },
+    onError: (error) => setCompanyEditError(formatApiError(error)),
+  });
+
   function handleDelete(id: number, username: string) {
-    if (!window.confirm(`Permanently delete "${username}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Move "${username}" to the Recycle Bin? You can restore it later.`)) return;
     setDeleteError(null);
     deleteMutation.mutate(id);
+  }
+
+  function startEditingCompany(rowKey: string, companyId: number, currentName: string) {
+    setEditingRowKey(rowKey);
+    setEditingCompanyId(companyId);
+    setEditCompanyName(currentName);
+    setCompanyEditError(null);
+  }
+
+  function cancelEditingCompany() {
+    setEditingRowKey(null);
+    setEditingCompanyId(null);
+    setCompanyEditError(null);
+  }
+
+  function saveEditingCompany() {
+    if (!editCompanyName.trim() || editingCompanyId === null) return;
+    renameCompanyMutation.mutate({ id: editingCompanyId, name: editCompanyName.trim() });
+  }
+
+  function handleCompanyEditKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") saveEditingCompany();
+    if (e.key === "Escape") cancelEditingCompany();
+  }
+
+  // Company names can only ever be changed by Global Admin (enforced server-side too) —
+  // Super Admin/Admin viewing this page see the company name as plain read-only text.
+  // `rowKey` must be unique per row (not per company) since several users can share a
+  // company — only the exact row that was clicked should render the live input.
+  function renderCompanyCell(u: User, rowKey: string) {
+    if (!isGlobalAdmin) return <td className="px-4 py-3 text-gray-600">{u.company_name || "(platform)"}</td>;
+    if (!u.company) return <td className="px-4 py-3 text-gray-600">(platform)</td>;
+
+    if (editingRowKey === rowKey) {
+      return (
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              className="rounded-md border border-indigo-300 px-2 py-1 text-sm w-36"
+              value={editCompanyName}
+              onChange={(e) => setEditCompanyName(e.target.value)}
+              onKeyDown={handleCompanyEditKeyDown}
+            />
+            <button
+              onClick={saveEditingCompany}
+              disabled={renameCompanyMutation.isPending}
+              title="Save"
+              className="text-green-600 hover:text-green-700 disabled:opacity-50"
+            >
+              <Check size={15} />
+            </button>
+            <button onClick={cancelEditingCompany} title="Cancel" className="text-gray-400 hover:text-red-600">
+              <X size={15} />
+            </button>
+          </div>
+        </td>
+      );
+    }
+
+    return (
+      <td className="px-4 py-3 text-gray-600">
+        <span className="flex items-center gap-1.5 group">
+          {u.company_name || "(platform)"}
+          <button
+            onClick={() => startEditingCompany(rowKey, u.company as number, u.company_name || "")}
+            title="Rename company (Global Admin only)"
+            className="text-gray-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100"
+          >
+            <Pencil size={12} />
+          </button>
+        </span>
+      </td>
+    );
   }
 
   function handleSubmit(e: FormEvent) {
@@ -140,13 +263,53 @@ export default function Users() {
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex gap-1 border-b border-gray-200">
+          <button
+            onClick={() => setView("active")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+              view === "active"
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Active{users ? ` (${users.length})` : ""}
+          </button>
+          <button
+            onClick={() => setView("recycle")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+              view === "recycle"
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Recycle Bin{deletedUsers ? ` (${deletedUsers.length})` : ""}
+          </button>
+        </div>
+        <div className="relative">
+          <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            placeholder="Search by name, username, or email..."
+            className="w-72 rounded-md border border-gray-300 pl-8 pr-3 py-2 text-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
       {deleteError && (
         <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
           {deleteError}
         </div>
       )}
 
-      {isLoading ? (
+      {companyEditError && (
+        <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+          {companyEditError}
+        </div>
+      )}
+
+      {view === "active" && (isLoading ? (
         <p className="text-sm text-gray-500">Loading users...</p>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden overflow-x-auto">
@@ -171,9 +334,7 @@ export default function Users() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{u.email}</td>
-                  {isGlobalAdmin && (
-                    <td className="px-4 py-3 text-gray-600">{u.company_name || "(platform)"}</td>
-                  )}
+                  {isGlobalAdmin && renderCompanyCell(u, `active-${u.id}`)}
                   <td className="px-4 py-3">
                     {u.id === currentUser?.id ? (
                       <span className={`text-xs px-2 py-1 rounded-full ${roleTones[u.role]}`}>
@@ -223,8 +384,64 @@ export default function Users() {
               ))}
             </tbody>
           </table>
+          {users?.length === 0 && (
+            <p className="text-sm text-gray-400 px-4 py-6 text-center">
+              {search ? "No users match this search." : "No users yet."}
+            </p>
+          )}
         </div>
-      )}
+      ))}
+
+      {view === "recycle" && (isLoadingRecycleBin ? (
+        <p className="text-sm text-gray-500">Loading recycle bin...</p>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3">Username</th>
+                <th className="px-4 py-3">Email</th>
+                {isGlobalAdmin && <th className="px-4 py-3">Company</th>}
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Deleted</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {deletedUsers?.map((u) => (
+                <tr key={u.id}>
+                  <td className="px-4 py-3 font-medium text-gray-800">{u.username}</td>
+                  <td className="px-4 py-3 text-gray-500">{u.email}</td>
+                  {isGlobalAdmin && renderCompanyCell(u, `recycle-${u.id}`)}
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${roleTones[u.role]}`}>
+                      {ROLE_LABELS[u.role]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {u.deleted_at ? new Date(u.deleted_at).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => restoreMutation.mutate(u.id)}
+                      disabled={restoreMutation.isPending}
+                      title="Restore and reactivate"
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-600 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50"
+                    >
+                      <RotateCcw size={13} /> Restore
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {deletedUsers?.length === 0 && (
+            <p className="text-sm text-gray-400 px-4 py-6 text-center">
+              {search ? "No deleted users match this search." : "Recycle bin is empty."}
+            </p>
+          )}
+        </div>
+      ))}
 
       {isModalOpen && (
         <Modal title="Add User" onClose={closeModal}>
@@ -236,19 +453,25 @@ export default function Users() {
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First name <span className="text-gray-400 font-normal">e.g. Baswaraj</span>
+                </label>
                 <input
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   value={form.first_name}
                   onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last name <span className="text-gray-400 font-normal">e.g. Tugashatte</span>
+                </label>
                 <input
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   value={form.last_name}
                   onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                  required
                 />
               </div>
               <div>

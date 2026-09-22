@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Check, Pencil, Plus, X } from "lucide-react";
 
 import Modal from "../components/Modal";
-import { createCompany, getCompanies } from "../services/companyService";
+import { createCompany, getCompanies, updateCompany } from "../services/companyService";
 
 function formatApiError(error: unknown): string {
   const data = (error as { response?: { data?: Record<string, string[] | string> } })?.response?.data;
@@ -24,6 +24,10 @@ export default function Companies() {
   const [code, setCode] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
   const createMutation = useMutation({
     mutationFn: createCompany,
     onSuccess: () => {
@@ -36,6 +40,16 @@ export default function Companies() {
     onError: (error) => setFormError(formatApiError(error)),
   });
 
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => updateCompany(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      setEditingId(null);
+      setEditError(null);
+    },
+    onError: (error) => setEditError(formatApiError(error)),
+  });
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -45,6 +59,27 @@ export default function Companies() {
   function closeModal() {
     setIsModalOpen(false);
     setFormError(null);
+  }
+
+  function startEditing(id: number, currentName: string) {
+    setEditingId(id);
+    setEditName(currentName);
+    setEditError(null);
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditError(null);
+  }
+
+  function saveEditing(id: number) {
+    if (!editName.trim()) return;
+    renameMutation.mutate({ id, name: editName.trim() });
+  }
+
+  function handleEditKeyDown(e: KeyboardEvent<HTMLInputElement>, id: number) {
+    if (e.key === "Enter") saveEditing(id);
+    if (e.key === "Escape") cancelEditing();
   }
 
   return (
@@ -61,6 +96,12 @@ export default function Companies() {
           <Plus size={16} /> New Company
         </button>
       </div>
+
+      {editError && (
+        <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+          {editError}
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-gray-500">Loading companies...</p>
@@ -80,9 +121,41 @@ export default function Companies() {
             <tbody className="divide-y divide-gray-100">
               {companies?.map((company) => (
                 <tr key={company.id}>
-                  <td className="px-4 py-3 font-medium text-gray-800 flex items-center gap-2">
-                    <Building2 size={16} className="text-indigo-500" />
-                    {company.name}
+                  <td className="px-4 py-3 font-medium text-gray-800">
+                    {editingId === company.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          className="rounded-md border border-indigo-300 px-2 py-1 text-sm w-48"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, company.id)}
+                        />
+                        <button
+                          onClick={() => saveEditing(company.id)}
+                          disabled={renameMutation.isPending}
+                          title="Save"
+                          className="text-green-600 hover:text-green-700 disabled:opacity-50"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button onClick={cancelEditing} title="Cancel" className="text-gray-400 hover:text-red-600">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group">
+                        <Building2 size={16} className="text-indigo-500" />
+                        {company.name}
+                        <button
+                          onClick={() => startEditing(company.id, company.name)}
+                          title="Rename company (Global Admin only)"
+                          className="text-gray-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-500">{company.code}</td>
                   <td className="px-4 py-3 text-gray-700">{company.user_count}</td>

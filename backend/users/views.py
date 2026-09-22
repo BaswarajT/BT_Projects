@@ -4,9 +4,9 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db.models import ProtectedError
 from django.utils import timezone
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -26,33 +26,58 @@ OTP_RESEND_COOLDOWN_SECONDS = 60
 class UserManagementViewSet(viewsets.ModelViewSet):
     """Only Global Admin and Super Admin reach this at all — Admin has no user-management
     access (see users.permissions). Global Admin sees/manages every user on the platform;
-    Super Admin is scoped to their own company via get_queryset."""
+    Super Admin is scoped to their own company via get_queryset.
+
+    "Delete" is a soft delete: the account moves to the Recycle Bin (deleted_at set,
+    is_active cleared) instead of being removed, and can be restored later. This also
+    keeps its email/username reserved so a duplicate account can't be created in its
+    place — see AdminUserSerializer.validate_email.
+    """
 
     serializer_class = AdminUserSerializer
     permission_classes = [IsAuthenticated, CanManageUsers]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    search_fields = ["username", "first_name", "last_name", "email"]
 
-    def get_queryset(self):
+    def _base_queryset(self):
         user = self.request.user
         if is_global_admin(user):
-            return User.objects.all().order_by("company__name", "username")
-        return User.objects.filter(company=user.company).order_by("username")
+            return User.objects.all()
+        return User.objects.filter(company=user.company)
+
+    def get_queryset(self):
+        base = self._base_queryset()
+        if self.action in ("recycle_bin", "restore"):
+            return base.filter(deleted_at__isnull=False).order_by("-deleted_at")
+        base = base.filter(deleted_at__isnull=True)
+        if is_global_admin(self.request.user):
+            return base.order_by("company__name", "username")
+        return base.order_by("username")
 
     def perform_destroy(self, instance):
         if instance.id == self.request.user.id:
             raise ValidationError({"detail": "You can't delete your own account."})
-        if instance.role == "GLOBAL_ADMIN" and User.objects.filter(role="GLOBAL_ADMIN").count() <= 1:
+        if (
+            instance.role == "GLOBAL_ADMIN"
+            and User.objects.filter(role="GLOBAL_ADMIN", deleted_at__isnull=True).count() <= 1
+        ):
             raise ValidationError({"detail": "You can't delete the last remaining Global Admin."})
-        try:
-            instance.delete()
-        except ProtectedError:
-            count = instance.owned_projects.count()
-            raise ValidationError({
-                "detail": (
-                    f"Can't delete {instance.username}: they own {count} project(s). "
-                    "Reassign or delete those projects first."
-                )
-            })
+        instance.deleted_at = timezone.now()
+        instance.is_active = False
+        instance.save(update_fields=["deleted_at", "is_active"])
+
+    @action(detail=False, methods=["get"], url_path="recycle-bin")
+    def recycle_bin(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        return Response(self.get_serializer(queryset, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, pk=None):
+        instance = self.get_object()
+        instance.deleted_at = None
+        instance.is_active = True
+        instance.save(update_fields=["deleted_at", "is_active"])
+        return Response(self.get_serializer(instance).data)
 
 
 class MeView(APIView):

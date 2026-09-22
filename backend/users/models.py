@@ -54,6 +54,7 @@ class User(AbstractUser):
     sales_target = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     region = models.CharField(max_length=100, blank=True)
     territory = models.CharField(max_length=100, blank=True)
+    sidebar_order = models.JSONField(null=True, blank=True, default=None)
 
     def __str__(self):
         return self.username

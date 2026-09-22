@@ -81,4 +81,28 @@
       transition: none !important;
     }
   }
+
+  /* Long-press-to-move affordance: a thin bar fills under the tab over the
+     hold duration so the user can see the press is registering, and the tab
+     itself is grabbed once it's fully picked up. */
+  .nav-tab-hold-bar {
+    animation: nav-tab-hold-fill 5000ms linear forwards;
+  }
+
+  @keyframes nav-tab-hold-fill {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .nav-tab-grabbed {
+    box-shadow:
+      0 10px 24px -8px rgba(79, 70, 229, 0.35),
+      0 2px 6px rgba(15, 23, 42, 0.1);
+    background-color: rgb(238 242 255);
+    cursor: grabbing;
+  }
 }

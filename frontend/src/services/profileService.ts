@@ -8,6 +8,11 @@ export async function updateProfile(data: FormData): Promise<User> {
   return response.data;
 }
 
+export async function updateSidebarOrder(order: string[]): Promise<User> {
+  const response = await api.patch("/me/", { sidebar_order: order });
+  return response.data;
+}
+
 export async function requestOtp(purpose: VerificationPurpose): Promise<{ detail: string; dev_code?: string }> {
   const response = await api.post(`/verify/${purpose}/request/`);
   return response.data;

@@ -146,6 +146,7 @@ export interface User {
   phone_verified: boolean;
   is_active: boolean;
   deleted_at?: string | null;
+  sidebar_order: string[] | null;
 }
 
 export interface Company {

@@ -20,7 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             "id", "username", "email", "first_name", "last_name", "display_name",
             "role", "company", "company_name", "phone", "avatar", "gender", "country", "dial_code",
             "state", "language", "timezone", "job_title", "department", "bio", "website",
-            "email_verified", "phone_verified", "is_active",
+            "email_verified", "phone_verified", "is_active", "sidebar_order",
         ]
         read_only_fields = ["role", "company", "email_verified", "phone_verified", "is_active"]
 
@@ -49,8 +49,16 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         fields = [
             "first_name", "last_name", "display_name", "email", "phone",
             "gender", "country", "state", "language", "timezone", "avatar",
-            "job_title", "department", "bio", "website",
+            "job_title", "department", "bio", "website", "sidebar_order",
         ]
+        extra_kwargs = {"sidebar_order": {"required": False}}
+
+    def validate_sidebar_order(self, value):
+        if value is None:
+            return value
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise serializers.ValidationError("Must be a list of tab keys.")
+        return value
 
     def validate_avatar(self, value):
         if not value:

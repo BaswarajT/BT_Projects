@@ -66,8 +66,8 @@ export default function Sidebar() {
           to={to}
           end={end}
           className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
-              isActive ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-100"
+            `nav-tab flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
+              isActive ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:text-gray-900"
             }`
           }
         >

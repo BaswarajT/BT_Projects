@@ -25,6 +25,9 @@ class Project(models.Model):
     company = models.ForeignKey(
         "companies.Company", on_delete=models.CASCADE, related_name="projects", null=True, blank=True
     )
+    client = models.ForeignKey(
+        "clients.Client", on_delete=models.SET_NULL, related_name="projects", null=True, blank=True
+    )
     pmo_name = models.CharField("PMO name", max_length=255, blank=True)
     region = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)

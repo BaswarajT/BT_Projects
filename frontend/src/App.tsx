@@ -13,6 +13,10 @@ import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import Users from "./pages/Users";
 import Companies from "./pages/Companies";
+import Clients from "./pages/Clients";
+import SalesTeam from "./pages/SalesTeam";
+import SalesProjects from "./pages/SalesProjects";
+import Deals from "./pages/Deals";
 
 export default function App() {
   return (
@@ -26,6 +30,16 @@ export default function App() {
         <Route path="/kanban" element={<Kanban />} />
         <Route path="/timesheet" element={<Timesheet />} />
         <Route path="/profile" element={<Profile />} />
+        <Route
+          element={
+            <RequireRole roles={["GLOBAL_ADMIN", "SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "SALESPERSON"]} />
+          }
+        >
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/sales-team" element={<SalesTeam />} />
+          <Route path="/sales-projects" element={<SalesProjects />} />
+          <Route path="/deals" element={<Deals />} />
+        </Route>
         <Route element={<RequireRole roles={["GLOBAL_ADMIN", "SUPER_ADMIN", "ADMIN"]} />}>
           <Route path="/reports" element={<Reports />} />
         </Route>

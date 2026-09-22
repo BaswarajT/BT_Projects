@@ -7,6 +7,36 @@ from companies.models import Company
 from .models import OTPCode, User
 
 
+class TeamDirectoryTest(APITestCase):
+    def setUp(self):
+        self.company_a = Company.objects.create(name="Company A", code="DIR1")
+        self.company_b = Company.objects.create(name="Company B", code="DIR2")
+        self.member_a = User.objects.create_user(
+            username="member_a", password="StrongPassword123", company=self.company_a
+        )
+        self.member_a2 = User.objects.create_user(
+            username="member_a2", password="StrongPassword123", company=self.company_a
+        )
+        self.member_b = User.objects.create_user(
+            username="member_b", password="StrongPassword123", company=self.company_b
+        )
+        self.deleted_a = User.objects.create_user(
+            username="gone_a", password="StrongPassword123", company=self.company_a
+        )
+        self.deleted_a.deleted_at = "2026-01-01T00:00:00Z"
+        self.deleted_a.save(update_fields=["deleted_at"])
+
+    def test_any_authenticated_user_sees_own_company_directory(self):
+        self.client.force_authenticate(self.member_a)
+        response = self.client.get("/api/team-directory/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = [u["username"] for u in response.data]
+        self.assertIn("member_a", usernames)
+        self.assertIn("member_a2", usernames)
+        self.assertNotIn("member_b", usernames)
+        self.assertNotIn("gone_a", usernames)
+
+
 class TokenRefreshForDeletedUserTest(APITestCase):
     def test_refresh_for_deleted_user_returns_clean_error_not_500(self):
         user = User.objects.create_user(username="soon_deleted", password="StrongPassword123")

@@ -31,7 +31,9 @@ const roleTones: Record<Role, string> = {
   GLOBAL_ADMIN: "bg-purple-100 text-purple-700",
   SUPER_ADMIN: "bg-violet-100 text-violet-700",
   ADMIN: "bg-indigo-100 text-indigo-700",
+  SALES_MANAGER: "bg-rose-100 text-rose-700",
   PROJECT_MANAGER: "bg-blue-100 text-blue-700",
+  SALESPERSON: "bg-pink-100 text-pink-700",
   TEAM_LEAD: "bg-cyan-100 text-cyan-700",
   MEMBER: "bg-gray-100 text-gray-600",
   CLIENT: "bg-amber-100 text-amber-700",
@@ -91,8 +93,8 @@ export default function Users() {
   // Global Admin can hand out any role, including Global Admin and Super Admin.
   // Super Admin can hand out Admin and below only — never Super Admin or Global Admin.
   const availableRoles: Role[] = isGlobalAdmin
-    ? ["GLOBAL_ADMIN", "SUPER_ADMIN", "ADMIN", "PROJECT_MANAGER", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"]
-    : ["ADMIN", "PROJECT_MANAGER", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"];
+    ? ["GLOBAL_ADMIN", "SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SALESPERSON", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"]
+    : ["ADMIN", "SALES_MANAGER", "PROJECT_MANAGER", "SALESPERSON", "TEAM_LEAD", "MEMBER", "CLIENT", "VIEWER"];
 
   const createMutation = useMutation({
     mutationFn: createManagedUser,

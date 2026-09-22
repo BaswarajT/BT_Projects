@@ -1,9 +1,10 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Count, Sum
 
 ACTIVE_TASK_STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW", "BLOCKED"]
+OPEN_DEAL_STAGES = ["NEW", "QUALIFICATION", "DISCOVERY", "PROPOSAL", "NEGOTIATION", "HOLD"]
 
 
 def count_weekdays(start_date, end_date):
@@ -115,4 +116,56 @@ def build_project_overrun(projects_queryset, today):
         })
 
     results.sort(key=lambda r: r["overrun_pct"], reverse=True)
+    return results
+
+
+def build_sales_team_performance(users, sales_projects_queryset):
+    """users: iterable of User (Sales Manager/Salesperson). sales_projects_queryset:
+    already scoped to the relevant company/platform. Returns per-salesperson pipeline,
+    won/lost/hold value, win rate and target achievement."""
+    by_user = {}
+    rows = (
+        sales_projects_queryset.values("salesperson", "stage")
+        .annotate(total=Sum("amount"), count=Count("id"))
+    )
+    for row in rows:
+        entry = by_user.setdefault(row["salesperson"], {"by_stage": {}})
+        entry["by_stage"][row["stage"]] = {"total": row["total"] or Decimal(0), "count": row["count"]}
+
+    results = []
+    for user in users:
+        stages = by_user.get(user.id, {}).get("by_stage", {})
+
+        pipeline_value = sum(
+            (stages.get(s, {}).get("total") or Decimal(0)) for s in OPEN_DEAL_STAGES
+        )
+        active_deals = sum(stages.get(s, {}).get("count", 0) for s in OPEN_DEAL_STAGES)
+        won_value = stages.get("WON", {}).get("total") or Decimal(0)
+        won_count = stages.get("WON", {}).get("count", 0)
+        lost_value = stages.get("LOST", {}).get("total") or Decimal(0)
+        lost_count = stages.get("LOST", {}).get("count", 0)
+        hold_value = stages.get("HOLD", {}).get("total") or Decimal(0)
+        closed_count = won_count + lost_count
+        win_rate = round((won_count / closed_count) * 100, 1) if closed_count else 0.0
+        target = user.sales_target
+        achievement_pct = round(float(won_value) / float(target) * 100, 1) if target else None
+
+        results.append({
+            "id": user.id,
+            "username": user.username,
+            "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
+            "role": user.role,
+            "region": user.region,
+            "target": float(target) if target is not None else None,
+            "pipeline_value": float(pipeline_value),
+            "active_deals": active_deals,
+            "won_value": float(won_value),
+            "won_deals": won_count,
+            "lost_value": float(lost_value),
+            "hold_value": float(hold_value),
+            "win_rate": win_rate,
+            "achievement_pct": achievement_pct,
+        })
+
+    results.sort(key=lambda r: r["won_value"], reverse=True)
     return results

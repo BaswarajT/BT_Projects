@@ -10,6 +10,8 @@ export interface Project {
   owner_name: string;
   company: number | null;
   company_name: string | null;
+  client: number | null;
+  client_name: string | null;
   pmo_name: string;
   region: string;
   state: string;
@@ -50,7 +52,9 @@ export type Role =
   | "GLOBAL_ADMIN"
   | "SUPER_ADMIN"
   | "ADMIN"
+  | "SALES_MANAGER"
   | "PROJECT_MANAGER"
+  | "SALESPERSON"
   | "TEAM_LEAD"
   | "MEMBER"
   | "CLIENT"
@@ -60,7 +64,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   GLOBAL_ADMIN: "Global Admin",
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
+  SALES_MANAGER: "Sales Manager",
   PROJECT_MANAGER: "Project Manager",
+  SALESPERSON: "Salesperson",
   TEAM_LEAD: "Team Lead",
   MEMBER: "Member",
   CLIENT: "Client",
@@ -211,4 +217,125 @@ export interface ProjectOverrun {
 
 export interface ProjectOverrunReport {
   projects: ProjectOverrun[];
+}
+
+export type ClientStatus = "ACTIVE" | "INACTIVE";
+
+export interface Client {
+  id: number;
+  company: number | null;
+  company_name: string | null;
+  name: string;
+  code: string;
+  industry: string;
+  website: string;
+  country: string;
+  state: string;
+  city: string;
+  address: string;
+  primary_contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  account_manager: number | null;
+  account_manager_name: string | null;
+  salesperson: number | null;
+  salesperson_name: string | null;
+  status: ClientStatus;
+  notes: string;
+  total_deals: number;
+  won_deals: number;
+  active_projects: number;
+  total_revenue: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DealStage =
+  | "NEW"
+  | "QUALIFICATION"
+  | "DISCOVERY"
+  | "PROPOSAL"
+  | "NEGOTIATION"
+  | "HOLD"
+  | "WON"
+  | "LOST"
+  | "CANCELLED";
+
+export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
+  NEW: "New",
+  QUALIFICATION: "Qualification",
+  DISCOVERY: "Discovery",
+  PROPOSAL: "Proposal",
+  NEGOTIATION: "Negotiation",
+  HOLD: "Hold",
+  WON: "Won",
+  LOST: "Lost",
+  CANCELLED: "Cancelled",
+};
+
+export const OPEN_DEAL_STAGES: DealStage[] = [
+  "NEW", "QUALIFICATION", "DISCOVERY", "PROPOSAL", "NEGOTIATION", "HOLD",
+];
+
+export interface SalesProject {
+  id: number;
+  company: number | null;
+  company_name: string | null;
+  name: string;
+  client: number;
+  client_name: string;
+  client_contact: string;
+  salesperson: number;
+  salesperson_name: string;
+  sales_manager: number | null;
+  sales_manager_name: string | null;
+  presales_owner: number | null;
+  presales_owner_name: string | null;
+  pmo: number | null;
+  pmo_name: string | null;
+  project_manager: number | null;
+  project_manager_name: string | null;
+  stage: DealStage;
+  priority: ProjectPriority;
+  amount: string;
+  currency: string;
+  probability: number;
+  weighted_amount: number;
+  region: string;
+  lead_source: string;
+  solution: string;
+  technology: string;
+  competitor: string;
+  decision_maker: string;
+  next_action: string;
+  next_action_date: string | null;
+  expected_start_date: string | null;
+  expected_end_date: string | null;
+  expected_close_date: string | null;
+  notes: string;
+  linked_project: number | null;
+  linked_project_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesTeamMember {
+  id: number;
+  username: string;
+  full_name: string;
+  role: Role;
+  region: string;
+  target: number | null;
+  pipeline_value: number;
+  active_deals: number;
+  won_value: number;
+  won_deals: number;
+  lost_value: number;
+  hold_value: number;
+  win_rate: number;
+  achievement_pct: number | null;
+}
+
+export interface SalesTeamPerformanceReport {
+  team: SalesTeamMember[];
 }

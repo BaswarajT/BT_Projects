@@ -9,10 +9,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from projects.models import Milestone, Project
+from sales.models import SalesProject
 from tasks.models import Task, TimeEntry
-from users.permissions import HasCompanyWideVisibility, has_company_wide_visibility, is_global_admin
+from users.permissions import (
+    HasCompanyWideVisibility,
+    HasSalesAccess,
+    SALES_ROLES,
+    has_company_wide_visibility,
+    is_global_admin,
+    is_sales_manager,
+)
 
-from .analytics import build_project_overrun, build_resource_utilization
+from .analytics import build_project_overrun, build_resource_utilization, build_sales_team_performance
 
 User = get_user_model()
 
@@ -157,3 +165,25 @@ class ProjectOverrunView(APIView):
             projects = Project.objects.filter(company=user.company).select_related("company")
 
         return Response({"projects": build_project_overrun(projects, today)})
+
+
+class SalesTeamPerformanceView(APIView):
+    """Admin-tier and Sales Manager see the whole team; a Salesperson sees only
+    their own row."""
+
+    permission_classes = [IsAuthenticated, HasSalesAccess]
+
+    def get(self, request):
+        user = request.user
+
+        if is_global_admin(user):
+            users = User.objects.filter(role__in=SALES_ROLES, deleted_at__isnull=True)
+            deals = SalesProject.objects.all()
+        else:
+            users = User.objects.filter(company=user.company, role__in=SALES_ROLES, deleted_at__isnull=True)
+            deals = SalesProject.objects.filter(company=user.company)
+            if not (has_company_wide_visibility(user) or is_sales_manager(user)):
+                users = users.filter(id=user.id)
+                deals = deals.filter(salesperson=user)
+
+        return Response({"team": build_sales_team_performance(users, deals)})

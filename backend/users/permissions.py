@@ -33,11 +33,31 @@ def can_manage_users(user):
     return is_global_admin(user) or is_super_admin(user)
 
 
+SALES_ROLES = ["SALES_MANAGER", "SALESPERSON"]
+
+
+def is_sales_manager(user):
+    return bool(user and user.is_authenticated and user.role == "SALES_MANAGER")
+
+
+def is_salesperson(user):
+    return bool(user and user.is_authenticated and user.role == "SALESPERSON")
+
+
+def has_sales_access(user):
+    """Who can reach the Clients/Sales Projects/Deals/Sales Team endpoints at all.
+    Fine-grained scoping (a Salesperson only sees their own deals) happens in each
+    view's get_queryset, not here."""
+    return has_company_wide_visibility(user) or is_sales_manager(user) or is_salesperson(user)
+
+
 ROLE_RANK = {
     "GLOBAL_ADMIN": 6,
     "SUPER_ADMIN": 5,
     "ADMIN": 4,
+    "SALES_MANAGER": 3,
     "PROJECT_MANAGER": 3,
+    "SALESPERSON": 2,
     "TEAM_LEAD": 2,
     "MEMBER": 1,
     "CLIENT": 1,
@@ -70,3 +90,12 @@ class HasCompanyWideVisibility(BasePermission):
 
     def has_permission(self, request, view):
         return has_company_wide_visibility(request.user)
+
+
+class HasSalesAccess(BasePermission):
+    """Admin-tier roles plus Sales Manager/Salesperson can reach sales endpoints
+    at all; per-record scoping (a Salesperson sees only their own deals) is
+    applied in each view's get_queryset."""
+
+    def has_permission(self, request, view):
+        return has_sales_access(request.user)

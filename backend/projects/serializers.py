@@ -6,12 +6,13 @@ from .models import Milestone, Project, ProjectMember
 class ProjectSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source="owner.username", read_only=True)
     company_name = serializers.CharField(source="company.name", read_only=True, default=None)
+    client_name = serializers.CharField(source="client.name", read_only=True, default=None)
 
     class Meta:
         model = Project
         fields = [
             "id", "name", "code", "description", "owner", "owner_name", "company", "company_name",
-            "pmo_name", "region", "state", "priority", "budget",
+            "client", "client_name", "pmo_name", "region", "state", "priority", "budget",
             "status", "start_date", "end_date", "created_at", "updated_at",
         ]
         read_only_fields = ["owner", "company"]

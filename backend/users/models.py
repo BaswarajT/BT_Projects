@@ -17,7 +17,9 @@ class User(AbstractUser):
         ("GLOBAL_ADMIN", "Global Admin"),
         ("SUPER_ADMIN", "Super Admin"),
         ("ADMIN", "Admin"),
+        ("SALES_MANAGER", "Sales Manager"),
         ("PROJECT_MANAGER", "Project Manager"),
+        ("SALESPERSON", "Salesperson"),
         ("TEAM_LEAD", "Team Lead"),
         ("MEMBER", "Member"),
         ("CLIENT", "Client"),
@@ -49,6 +51,9 @@ class User(AbstractUser):
     phone_verified = models.BooleanField(default=False)
     weekly_capacity_hours = models.DecimalField(max_digits=5, decimal_places=2, default=40)
     deleted_at = models.DateTimeField(null=True, blank=True, default=None, db_index=True)
+    sales_target = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    region = models.CharField(max_length=100, blank=True)
+    territory = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return self.username

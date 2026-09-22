@@ -28,6 +28,17 @@ class UserSerializer(serializers.ModelSerializer):
         return f"+{DIAL_CODES[obj.country]}" if obj.country in DIAL_CODES else None
 
 
+class TeamDirectorySerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "full_name", "role"]
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+
 MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024
 ALLOWED_AVATAR_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 

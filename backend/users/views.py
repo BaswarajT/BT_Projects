@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from .models import OTPCode, User
 from .permissions import CanManageUsers, is_global_admin
-from .serializers import AdminUserSerializer, ProfileUpdateSerializer, UserSerializer
+from .serializers import AdminUserSerializer, ProfileUpdateSerializer, TeamDirectorySerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,23 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         instance.is_active = True
         instance.save(update_fields=["deleted_at", "is_active"])
         return Response(self.get_serializer(instance).data)
+
+
+class TeamDirectoryView(APIView):
+    """A lightweight, read-only "who's in my company" list — just enough (id,
+    name, role) to populate assignee/owner picker dropdowns across the app.
+    Any authenticated user can call this; it carries no sensitive fields."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if is_global_admin(user):
+            queryset = User.objects.all()
+        else:
+            queryset = User.objects.filter(company=user.company)
+        queryset = queryset.filter(deleted_at__isnull=True, is_active=True).order_by("username")
+        return Response(TeamDirectorySerializer(queryset, many=True).data)
 
 
 class MeView(APIView):

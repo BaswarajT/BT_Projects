@@ -3,8 +3,10 @@ from datetime import date
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from clients.models import Client
 from companies.models import Company
 from projects.models import Milestone, Project, ProjectMember
+from sales.models import SalesProject
 from tasks.models import Task, TimeEntry
 from users.models import User
 
@@ -132,3 +134,50 @@ class ResourceReportsAPITest(APITestCase):
         self.assertEqual(project_data["actual_hours"], 36.0)
         self.assertEqual(project_data["schedule_status"], "OVER_BUDGET")
         self.assertGreater(project_data["overrun_pct"], 0)
+
+
+class SalesTeamPerformanceTest(APITestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Acme", code="SALESPERF1")
+        self.manager = User.objects.create_user(
+            username="sales_mgr", password="StrongPassword123", company=self.company, role="SALES_MANAGER"
+        )
+        self.rep1 = User.objects.create_user(
+            username="rep1", password="StrongPassword123", company=self.company, role="SALESPERSON",
+            sales_target=1000000,
+        )
+        self.rep2 = User.objects.create_user(
+            username="rep2", password="StrongPassword123", company=self.company, role="SALESPERSON",
+        )
+        client_record = Client.objects.create(company=self.company, name="Client X")
+        SalesProject.objects.create(
+            company=self.company, name="Won 1", client=client_record, salesperson=self.rep1,
+            stage="WON", amount=400000, probability=100,
+        )
+        SalesProject.objects.create(
+            company=self.company, name="Lost 1", client=client_record, salesperson=self.rep1,
+            stage="LOST", amount=100000, probability=0,
+        )
+        SalesProject.objects.create(
+            company=self.company, name="Open 1", client=client_record, salesperson=self.rep2,
+            stage="NEW", amount=250000,
+        )
+
+    def test_sales_manager_sees_whole_team(self):
+        self.client.force_authenticate(self.manager)
+        response = self.client.get("/api/reports/sales-team-performance/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_username = {r["username"]: r for r in response.data["team"]}
+
+        self.assertEqual(by_username["rep1"]["won_value"], 400000.0)
+        self.assertEqual(by_username["rep1"]["lost_value"], 100000.0)
+        self.assertEqual(by_username["rep1"]["win_rate"], 50.0)
+        self.assertEqual(by_username["rep1"]["achievement_pct"], 40.0)
+        self.assertEqual(by_username["rep2"]["pipeline_value"], 250000.0)
+        self.assertIsNone(by_username["rep2"]["achievement_pct"])
+
+    def test_salesperson_sees_only_own_row(self):
+        self.client.force_authenticate(self.rep1)
+        response = self.client.get("/api/reports/sales-team-performance/")
+        usernames = [r["username"] for r in response.data["team"]]
+        self.assertEqual(usernames, ["rep1"])

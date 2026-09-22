@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from companies.views import CompanyViewSet
+from companies.views import CompanyViewSet, GlobalAdminStatsView, PlatformSettingsView
 from clients.views import ClientViewSet
 from projects.views import MilestoneViewSet, ProjectViewSet, ProjectMemberViewSet
 from sales.views import SalesProjectViewSet
@@ -48,6 +48,8 @@ urlpatterns = [
     path("api/reports/resource-utilization/", ResourceUtilizationView.as_view()),
     path("api/reports/project-overrun/", ProjectOverrunView.as_view()),
     path("api/reports/sales-team-performance/", SalesTeamPerformanceView.as_view()),
+    path("api/platform-settings/", PlatformSettingsView.as_view()),
+    path("api/global-admin/stats/", GlobalAdminStatsView.as_view()),
     path("api/", include(router.urls)),
 ]
 

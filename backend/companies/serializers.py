@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Company
+from .models import Company, PlatformSettings
 
 
 class CompanySerializer(serializers.ModelSerializer):
@@ -21,3 +21,15 @@ class CompanySerializer(serializers.ModelSerializer):
 
     def get_project_count(self, obj):
         return obj.projects.count()
+
+
+class PlatformSettingsSerializer(serializers.ModelSerializer):
+    updated_by_name = serializers.CharField(source="updated_by.username", read_only=True, default=None)
+
+    class Meta:
+        model = PlatformSettings
+        fields = [
+            "maintenance_mode", "maintenance_message", "announcement_banner",
+            "updated_at", "updated_by", "updated_by_name",
+        ]
+        read_only_fields = ["updated_at", "updated_by"]

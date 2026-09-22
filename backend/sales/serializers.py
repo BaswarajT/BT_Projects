@@ -4,6 +4,13 @@ from users.permissions import is_global_admin
 
 from .models import SalesProject
 
+# `company` is a required FK on the model (every sales project belongs to exactly
+# one company), but it's never something the client should have to pick — it's
+# implied by who's creating it, same as every other company-scoped resource in
+# this app. `required=False` here lets the client omit it entirely; `validate()`
+# below fills it in from the requester (or, for Global Admin, requires it be
+# picked explicitly, since they don't have a company of their own).
+
 
 class SalesProjectSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True)
@@ -32,6 +39,7 @@ class SalesProjectSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = ["linked_project"]
+        extra_kwargs = {"company": {"required": False}}
 
     def get_weighted_amount(self, obj):
         return float(obj.weighted_amount)
@@ -45,6 +53,16 @@ class SalesProjectSerializer(serializers.ModelSerializer):
         return requester.company
 
     def validate(self, attrs):
+        requester = self.context["request"].user
+        if "company" not in attrs:
+            attrs["company"] = requester.company if not is_global_admin(requester) else getattr(
+                self.instance, "company", None
+            )
+        if attrs.get("company") is None:
+            raise serializers.ValidationError(
+                {"company": "Select a company for this sales project."}
+            )
+
         stage = attrs.get("stage", getattr(self.instance, "stage", None))
         if "probability" not in attrs:
             if stage == "WON":

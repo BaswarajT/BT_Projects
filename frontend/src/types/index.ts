@@ -398,3 +398,32 @@ export interface SalesTeamMember {
 export interface SalesTeamPerformanceReport {
   team: SalesTeamMember[];
 }
+
+export interface CompanySizeStat {
+  id: number;
+  name: string;
+  user_count: number;
+  project_count: number;
+}
+
+export interface GlobalAdminStats {
+  total_companies: number;
+  active_companies: number;
+  total_users: number;
+  active_users: number;
+  total_projects: number;
+  total_deals: number;
+  open_pipeline_value: number;
+  companies_last_30_days: number;
+  users_last_30_days: number;
+  companies_by_size: CompanySizeStat[];
+}
+
+export interface PlatformSettingsData {
+  maintenance_mode: boolean;
+  maintenance_message: string;
+  announcement_banner: string;
+  updated_at: string;
+  updated_by: number | null;
+  updated_by_name: string | null;
+}

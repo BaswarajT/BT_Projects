@@ -118,3 +118,58 @@ class ConvertToProjectTest(APITestCase):
             f"/api/sales-projects/{self.deal.id}/convert-to-project/", {"code": "DUPCODE"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class SalesProjectCompanyAssignmentTest(APITestCase):
+    """Regression test: creating a deal without an explicit `company` used to fail
+    for every user with {"company": ["This field is required."]}, since the FK is
+    required at the DB level but was never auto-filled server-side."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name="Acme", code="SALES3")
+        self.other_company = Company.objects.create(name="Globex", code="SALES4")
+        self.global_admin = User.objects.create_user(
+            username="root_sales", password="StrongPassword123", role="GLOBAL_ADMIN"
+        )
+        self.salesperson = User.objects.create_user(
+            username="sales_c", password="StrongPassword123", company=self.company, role="SALESPERSON"
+        )
+        self.client_record = Client.objects.create(company=self.company, name="Big Client")
+        self.other_client = Client.objects.create(company=self.other_company, name="Other Client")
+
+    def _payload(self, **overrides):
+        payload = {
+            "name": "New Deal", "client": self.client_record.id, "salesperson": self.salesperson.id,
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_non_global_admin_gets_own_company_without_specifying_it(self):
+        self.client.force_authenticate(self.salesperson)
+        response = self.client.post("/api/sales-projects/", self._payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["company"], self.company.id)
+
+    def test_non_global_admin_cannot_assign_a_different_company(self):
+        self.client.force_authenticate(self.salesperson)
+        response = self.client.post(
+            "/api/sales-projects/", self._payload(company=self.other_company.id), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("company", response.data)
+
+    def test_global_admin_must_specify_company(self):
+        self.client.force_authenticate(self.global_admin)
+        response = self.client.post("/api/sales-projects/", self._payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("company", response.data)
+
+    def test_global_admin_can_specify_company(self):
+        self.client.force_authenticate(self.global_admin)
+        response = self.client.post(
+            "/api/sales-projects/",
+            self._payload(company=self.other_company.id, client=self.other_client.id),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["company"], self.other_company.id)

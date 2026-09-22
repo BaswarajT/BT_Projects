@@ -23,9 +23,11 @@ class ProjectSerializer(serializers.ModelSerializer):
             "sales_person", "sales_person_name", "category_a", "category_b", "contract_type",
             "comments", "project_comments", "overrun_comments", "po_date", "billing_entity",
             "budget_type", "working_emp", "lob_head", "lob_head_name", "delivery_leads",
-            "project_type", "completion_status",
+            "project_type", "completion_status", "deleted_at",
         ]
-        read_only_fields = ["owner", "company", "created_by"]
+        # `code` is server-generated (see Project.generate_next_project_code) — never
+        # settable by the client, so a duplicate/mistyped Project ID can't happen.
+        read_only_fields = ["code", "owner", "company", "created_by", "deleted_at"]
 
 
 class ProjectMemberSerializer(serializers.ModelSerializer):

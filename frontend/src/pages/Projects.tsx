@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   FileText,
   Plus,
+  RotateCcw,
   Search,
   Settings,
   Trash2,
@@ -18,6 +19,8 @@ import {
   deleteProject,
   exportProjects,
   getProjects,
+  getRecycleBinProjects,
+  restoreProject,
   updateProject,
 } from "../services/projectService";
 import { getTeamDirectory } from "../services/teamDirectoryService";
@@ -131,7 +134,7 @@ const statuses: ProjectStatus[] = ["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED",
 const projectTypes: ProjectTypeTag[] = ["MRA", "NON_MRA"];
 
 interface ProjectForm {
-  name: string; code: string; description: string;
+  name: string; description: string;
   status: ProjectStatus; completion_status: ProjectStatus | ""; priority: ProjectPriority;
   percent_complete: number; project_type: ProjectTypeTag;
   pmo: number | ""; sales_person: number | ""; lob_head: number | ""; delivery_leads: string;
@@ -145,7 +148,7 @@ interface ProjectForm {
 
 function emptyForm(): ProjectForm {
   return {
-    name: "", code: "", description: "",
+    name: "", description: "",
     status: "PLANNING", completion_status: "", priority: "MEDIUM",
     percent_complete: 0, project_type: "",
     pmo: "", sales_person: "", lob_head: "", delivery_leads: "",
@@ -169,8 +172,11 @@ function formatApiError(error: unknown): string {
     .join(" ");
 }
 
+type View = "active" | "recycle";
+
 export default function Projects() {
   const queryClient = useQueryClient();
+  const [view, setView] = useState<View>("active");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [projectTypeFilter, setProjectTypeFilter] = useState("");
@@ -194,6 +200,12 @@ export default function Projects() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects", filterParams],
     queryFn: () => getProjects(filterParams),
+    enabled: view === "active",
+  });
+  const { data: deletedProjects, isLoading: isLoadingRecycleBin } = useQuery({
+    queryKey: ["recycle-bin-projects", search],
+    queryFn: () => getRecycleBinProjects(search ? { search } : undefined),
+    enabled: view === "recycle",
   });
   const { data: team } = useQuery({ queryKey: ["team-directory"], queryFn: getTeamDirectory });
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: () => getClients() });
@@ -231,6 +243,7 @@ export default function Projects() {
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["projects"] });
+    queryClient.invalidateQueries({ queryKey: ["recycle-bin-projects"] });
   }
 
   const createMutation = useMutation({
@@ -247,6 +260,10 @@ export default function Projects() {
     mutationFn: deleteProject,
     onSuccess: invalidate,
   });
+  const restoreMutation = useMutation({
+    mutationFn: restoreProject,
+    onSuccess: invalidate,
+  });
 
   function openCreate() {
     setEditing(null);
@@ -258,7 +275,7 @@ export default function Projects() {
   function openEdit(p: Project) {
     setEditing(p);
     setForm({
-      name: p.name, code: p.code, description: p.description,
+      name: p.name, description: p.description,
       status: p.status, completion_status: p.completion_status, priority: p.priority,
       percent_complete: p.percent_complete, project_type: p.project_type,
       pmo: p.pmo ?? "", sales_person: p.sales_person ?? "", lob_head: p.lob_head ?? "",
@@ -308,7 +325,7 @@ export default function Projects() {
   }
 
   function handleDelete(id: number, name: string) {
-    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Move "${name}" to the Recycle Bin? You can restore it later.`)) return;
     deleteMutation.mutate(id);
   }
 
@@ -392,6 +409,30 @@ export default function Projects() {
         </div>
       </div>
 
+      <div className="flex gap-1 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setView("active")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            view === "active"
+              ? "border-indigo-600 text-indigo-700"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Active{projects ? ` (${projects.length})` : ""}
+        </button>
+        <button
+          onClick={() => setView("recycle")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            view === "recycle"
+              ? "border-indigo-600 text-indigo-700"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Recycle Bin{deletedProjects ? ` (${deletedProjects.length})` : ""}
+        </button>
+      </div>
+
+      {view === "active" && <>
       <div className="flex flex-wrap items-end gap-3 mb-6 bg-white border border-gray-200 rounded-lg p-3">
         <div className="relative">
           <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -537,6 +578,52 @@ export default function Projects() {
           )}
         </div>
       )}
+      </>}
+
+      {view === "recycle" && (isLoadingRecycleBin ? (
+        <p className="text-sm text-gray-500">Loading recycle bin...</p>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3">Project Id</th>
+                <th className="px-4 py-3">Project Name</th>
+                <th className="px-4 py-3">Client</th>
+                <th className="px-4 py-3">Owner</th>
+                <th className="px-4 py-3">Deleted</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {deletedProjects?.map((p) => (
+                <tr key={p.id}>
+                  <td className="px-4 py-3 text-gray-700">{p.code}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.client_name || "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.owner_name}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {p.deleted_at ? new Date(p.deleted_at).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => restoreMutation.mutate(p.id)}
+                      disabled={restoreMutation.isPending}
+                      title="Restore"
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-600 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50"
+                    >
+                      <RotateCcw size={13} /> Restore
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {deletedProjects?.length === 0 && (
+            <p className="text-sm text-gray-400 px-4 py-6 text-center">Recycle bin is empty.</p>
+          )}
+        </div>
+      ))}
 
       {isModalOpen && (
         <Modal title={editing ? "Edit Project" : "New Project"} onClose={closeModal} wide>
@@ -562,11 +649,9 @@ export default function Projects() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Project Id</label>
                   <input
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    value={form.code}
-                    onChange={(e) => setForm({ ...form, code: e.target.value })}
-                    placeholder="PR-1234"
-                    required
+                    disabled
+                    className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
+                    value={editing ? editing.code : "Auto-generated on save"}
                   />
                 </div>
                 <div>

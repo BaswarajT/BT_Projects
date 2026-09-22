@@ -1,6 +1,25 @@
+import re
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+PR_CODE_PATTERN = re.compile(r"^PR-(\d+)$")
+
+
+def generate_next_project_code(company):
+    """Next sequential "PR-1001", "PR-1002", ... code for this company. Each company
+    gets its own independent sequence. Looks at every code (active or recycled) the
+    company has ever used — not just a row count — so a deleted project's number is
+    never reused and legacy manually-typed codes (e.g. "PR-1234") are respected as a
+    floor rather than collided with."""
+    existing_codes = Project.objects.filter(company=company).values_list("code", flat=True)
+    highest = 1000
+    for code in existing_codes:
+        match = PR_CODE_PATTERN.match(code or "")
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return f"PR-{highest + 1}"
 
 
 class Project(models.Model):
@@ -22,7 +41,7 @@ class Project(models.Model):
         ("NON_MRA", "Non MRA"),
     ]
     name = models.CharField(max_length=255)
-    code = models.CharField("Project ID", max_length=30, unique=True)
+    code = models.CharField("Project ID", max_length=30)
     description = models.TextField(blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="owned_projects"
@@ -88,6 +107,12 @@ class Project(models.Model):
     # Kept as its own column (not just derived from `status`) because the source
     # spreadsheet this was modeled on tracks it separately from the operational status.
     completion_status = models.CharField(max_length=20, choices=STATUS_CHOICES, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True, default=None, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["company", "code"], name="unique_project_code_per_company")
+        ]
 
     def __str__(self):
         return f"{self.code} - {self.name}"

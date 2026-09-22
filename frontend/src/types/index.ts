@@ -68,6 +68,7 @@ export interface Project {
   delivery_leads: string;
   project_type: ProjectTypeTag;
   completion_status: ProjectStatus | "";
+  deleted_at?: string | null;
 }
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "BLOCKED" | "DONE" | "CANCELLED";

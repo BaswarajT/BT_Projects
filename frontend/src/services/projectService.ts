@@ -11,6 +11,16 @@ export async function getProject(id: number): Promise<Project> {
   return response.data;
 }
 
+export async function getRecycleBinProjects(params?: Record<string, string>): Promise<Project[]> {
+  const response = await api.get("/projects/recycle-bin/", { params });
+  return response.data;
+}
+
+export async function restoreProject(id: number): Promise<Project> {
+  const response = await api.post(`/projects/${id}/restore/`);
+  return response.data;
+}
+
 export async function createProject(data: Partial<Project>): Promise<Project> {
   const response = await api.post("/projects/", data);
   return response.data;

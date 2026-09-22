@@ -33,17 +33,23 @@ class DashboardSummaryView(APIView):
         today = timezone.now().date()
 
         if is_global_admin(user):
-            projects = Project.objects.all()
-            tasks = Task.objects.all()
-            milestone_scope = Milestone.objects.all()
+            projects = Project.objects.filter(deleted_at__isnull=True)
+            tasks = Task.objects.filter(project__deleted_at__isnull=True)
+            milestone_scope = Milestone.objects.filter(project__deleted_at__isnull=True)
         elif has_company_wide_visibility(user):
-            projects = Project.objects.filter(company=user.company)
-            tasks = Task.objects.filter(project__company=user.company)
-            milestone_scope = Milestone.objects.filter(project__company=user.company)
+            projects = Project.objects.filter(company=user.company, deleted_at__isnull=True)
+            tasks = Task.objects.filter(project__company=user.company, project__deleted_at__isnull=True)
+            milestone_scope = Milestone.objects.filter(
+                project__company=user.company, project__deleted_at__isnull=True
+            )
         else:
-            projects = Project.objects.filter(members__user=user).distinct()
-            tasks = Task.objects.filter(project__members__user=user).distinct()
-            milestone_scope = Milestone.objects.filter(project__members__user=user)
+            projects = Project.objects.filter(members__user=user, deleted_at__isnull=True).distinct()
+            tasks = Task.objects.filter(
+                project__members__user=user, project__deleted_at__isnull=True
+            ).distinct()
+            milestone_scope = Milestone.objects.filter(
+                project__members__user=user, project__deleted_at__isnull=True
+            )
 
         milestones = (
             milestone_scope.filter(is_completed=False, due_date__gte=today)
@@ -134,12 +140,14 @@ class ResourceUtilizationView(APIView):
 
         if is_global_admin(user):
             users = User.objects.filter(role__in=RESOURCE_ROLES)
-            tasks = Task.objects.all()
-            time_entries = TimeEntry.objects.all()
+            tasks = Task.objects.filter(project__deleted_at__isnull=True)
+            time_entries = TimeEntry.objects.filter(task__project__deleted_at__isnull=True)
         else:
             users = User.objects.filter(company=user.company, role__in=RESOURCE_ROLES)
-            tasks = Task.objects.filter(project__company=user.company)
-            time_entries = TimeEntry.objects.filter(task__project__company=user.company)
+            tasks = Task.objects.filter(project__company=user.company, project__deleted_at__isnull=True)
+            time_entries = TimeEntry.objects.filter(
+                task__project__company=user.company, task__project__deleted_at__isnull=True
+            )
 
         resources = build_resource_utilization(users, tasks, time_entries, start_date, end_date)
         return Response({
@@ -160,9 +168,11 @@ class ProjectOverrunView(APIView):
         today = timezone.now().date()
 
         if is_global_admin(user):
-            projects = Project.objects.select_related("company")
+            projects = Project.objects.filter(deleted_at__isnull=True).select_related("company")
         else:
-            projects = Project.objects.filter(company=user.company).select_related("company")
+            projects = Project.objects.filter(
+                company=user.company, deleted_at__isnull=True
+            ).select_related("company")
 
         return Response({"projects": build_project_overrun(projects, today)})
 

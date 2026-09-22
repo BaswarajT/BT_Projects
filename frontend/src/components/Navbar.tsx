@@ -10,7 +10,7 @@ export default function Navbar() {
     <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-6">
       <Link to="/" className="flex items-center gap-2">
         <img src="/logo.webp" alt="" className="h-7 w-auto" />
-        <span className="font-semibold text-gray-800">BT Project Management</span>
+        <span className="font-semibold text-gray-800">Project Management</span>
       </Link>
       <div className="flex items-center gap-4">
         {user && (
